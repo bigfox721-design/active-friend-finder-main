@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -279,8 +280,13 @@ export default function MonthlyTarget() {
   const [editingCell, setEditingCell] = useState<{ day: number; field: EditField } | null>(null);
   const [editValue, setEditValue] = useState<string>("");
 
+  // Reason-for-delay modal
+  const [reasonModal, setReasonModal] = useState<{ dateStr: string; targetQty: number; completedQty: number } | null>(null);
+  const [delayReason, setDelayReason] = useState("");
+  const [reasonError, setReasonError] = useState("");
+
   const upsertCompleted = useMutation({
-    mutationFn: async (args: { dateStr: string; field: EditField; qty: number }) => {
+    mutationFn: async (args: { dateStr: string; field: EditField; qty: number; delay_reason?: string | null }) => {
       if (productId === "ALL") throw new Error("Select a specific product to update.");
       const qty = args.qty;
       if (!Number.isFinite(qty) || qty < 0) throw new Error("Enter a valid number");
@@ -313,9 +319,10 @@ export default function MonthlyTarget() {
         .eq("entry_date", args.dateStr)
         .maybeSingle();
 
-      const patch = args.field === "manpower"
+      const patch: Record<string, any> = args.field === "manpower"
         ? { manpower: Math.floor(qty) }
         : { completed_qty: Math.floor(qty) };
+      if (args.delay_reason !== undefined) patch.delay_reason = args.delay_reason;
 
       if (existing?.id) {
         const { error } = await (supabase as any)
@@ -332,6 +339,7 @@ export default function MonthlyTarget() {
           completed_qty: 0,
           branch_id: branchId,
           created_by: user?.id ?? null,
+          delay_reason: args.delay_reason ?? null,
           ...patch,
         };
         const { error } = await (supabase as any).from("production_entries").insert(insertRow);
@@ -358,7 +366,35 @@ export default function MonthlyTarget() {
       setEditingCell(null);
       return;
     }
+    if (field === "completed") {
+      const row = rows.find((r) => r.dateStr === dateStr);
+      if (row && n < row.target) {
+        setReasonModal({ dateStr, targetQty: row.target, completedQty: n });
+        setDelayReason("");
+        setReasonError("");
+        return;
+      }
+    }
     upsertCompleted.mutate({ dateStr, field, qty: n });
+  };
+
+  const submitReason = async () => {
+    const reason = delayReason.trim();
+    if (!reason) {
+      setReasonError("Please enter the reason for not achieving the target.");
+      return;
+    }
+    if (!reasonModal) return;
+    await upsertCompleted.mutateAsync({
+      dateStr: reasonModal.dateStr,
+      field: "completed",
+      qty: reasonModal.completedQty,
+      delay_reason: reason,
+    });
+    setReasonModal(null);
+    setDelayReason("");
+    setReasonError("");
+    setEditingCell(null);
   };
 
   return (
@@ -638,6 +674,38 @@ export default function MonthlyTarget() {
           </div>
         </Card>
       </div>
+
+      {/* Reason for delay modal */}
+      <Dialog open={reasonModal !== null} onOpenChange={(open) => { if (!open) { setReasonModal(null); setDelayReason(""); setReasonError(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reason for Delay</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Completed ({reasonModal?.completedQty}) is less than Target ({reasonModal?.targetQty}). Please explain the reason for the shortfall.
+            </p>
+            <textarea
+              className="w-full min-h-[100px] rounded-lg border border-border bg-background p-3 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Enter the reason for the delay..."
+              value={delayReason}
+              onChange={(e) => { setDelayReason(e.target.value); setReasonError(""); }}
+              autoFocus
+            />
+            {reasonError && (
+              <p className="text-sm text-destructive">{reasonError}</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => { setReasonModal(null); setDelayReason(""); setReasonError(""); }}>
+                Cancel
+              </Button>
+              <Button onClick={submitReason} disabled={upsertCompleted.isPending}>
+                {upsertCompleted.isPending ? "Saving…" : "Submit"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

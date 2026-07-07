@@ -42,7 +42,7 @@ export const useUpsertEntry = () => {
   const qc = useQueryClient();
   const { branchId } = useBranch();
   return useMutation({
-    mutationFn: async (input: { product_id: string; entry_date: string; target_qty?: number; completed_qty?: number; notes?: string; manpower?: number }) => {
+    mutationFn: async (input: { product_id: string; entry_date: string; target_qty?: number; completed_qty?: number; notes?: string; manpower?: number; delay_reason?: string | null }) => {
       // Ensure a matching products row exists (FK requirement). Sub-products live in
       // a separate table; mirror them into products as inactive so they satisfy the FK
       // without polluting the active product list.
@@ -79,6 +79,7 @@ export const useUpsertEntry = () => {
         if (input.completed_qty !== undefined) patch.completed_qty = input.completed_qty;
         if (input.notes !== undefined) patch.notes = input.notes;
         if (input.manpower !== undefined) patch.manpower = input.manpower;
+        if (input.delay_reason !== undefined) patch.delay_reason = input.delay_reason;
         const { error } = await (supabase as any).from("production_entries").update(patch).eq("id", existing.id);
         if (error) throw error;
       } else {
@@ -90,6 +91,7 @@ export const useUpsertEntry = () => {
           completed_qty: input.completed_qty ?? 0,
           notes: input.notes ?? null,
           manpower: input.manpower ?? null,
+          delay_reason: input.delay_reason ?? null,
           created_by: user?.id ?? null,
           branch_id: branchId,
         });

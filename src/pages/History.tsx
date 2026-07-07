@@ -71,13 +71,14 @@ export default function History() {
 
   const { data: entries = [], isLoading } = useEntries({ from, to });
 
-  // Aggregate map: date(ISO) -> { target, completed }
+  // Aggregate map: date(ISO) -> { target, completed, reasons }
   const byDate = useMemo(() => {
-    const map = new Map<string, { target: number; completed: number }>();
+    const map = new Map<string, { target: number; completed: number; reasons: string[] }>();
     for (const e of entries) {
-      const cur = map.get(e.entry_date) ?? { target: 0, completed: 0 };
+      const cur = map.get(e.entry_date) ?? { target: 0, completed: 0, reasons: [] };
       cur.target += e.target_qty;
       cur.completed += e.completed_qty;
+      if (e.delay_reason) cur.reasons.push(e.delay_reason);
       map.set(e.entry_date, cur);
     }
     return map;
@@ -203,25 +204,34 @@ export default function History() {
                     <th className="px-4 py-3 text-right">Target</th>
                     <th className="px-4 py-3 text-right">Completed</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Reason</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.from({ length: totalDays }, (_, i) => i + 1).map((d) => {
-                    const date = iso(year, month, d);
-                    const v = byDate.get(date) ?? { target: 0, completed: 0 };
-                    return (
-                      <tr key={d} className="border-t border-border hover:bg-secondary/30">
-                        <td className="px-4 py-3 tabular-nums font-semibold">{d}</td>
-                        <td className="px-4 py-3 tabular-nums text-muted-foreground">
-                          {new Date(year, month, d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">{fmtNum(v.target)}</td>
-                        <td className="px-4 py-3 text-right tabular-nums font-semibold">{fmtNum(v.completed)}</td>
-                        <td className="px-4 py-3"><StatusBadge completed={v.completed} target={v.target} /></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
+                    {Array.from({ length: totalDays }, (_, i) => i + 1).map((d) => {
+                        const date = iso(year, month, d);
+                        const v = byDate.get(date) ?? { target: 0, completed: 0, reasons: [] };
+                        const reasonText = v.reasons.length > 0 ? v.reasons.join("; ") : null;
+                        return (
+                          <tr key={d} className="border-t border-border hover:bg-secondary/30">
+                            <td className="px-4 py-3 tabular-nums font-semibold">{d}</td>
+                            <td className="px-4 py-3 tabular-nums text-muted-foreground">
+                              {new Date(year, month, d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums">{fmtNum(v.target)}</td>
+                            <td className="px-4 py-3 text-right tabular-nums font-semibold">{fmtNum(v.completed)}</td>
+                            <td className="px-4 py-3"><StatusBadge completed={v.completed} target={v.target} /></td>
+                            <td className="px-4 py-3 text-sm max-w-[180px] truncate" title={reasonText ?? ""}>
+                              {reasonText ? (
+                                <span className="text-muted-foreground cursor-default">{reasonText}</span>
+                              ) : (
+                                <span className="text-muted-foreground/50">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
               </table>
             )}
 
@@ -256,6 +266,7 @@ export default function History() {
                             <th className="px-3 py-2 text-right">Target</th>
                             <th className="px-3 py-2 text-right">Completed</th>
                             <th className="px-3 py-2 text-left">Status</th>
+                            <th className="px-3 py-2 text-left">Reason</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -268,10 +279,12 @@ export default function History() {
                                   <td className="px-3 py-2 text-right">—</td>
                                   <td className="px-3 py-2 text-right">—</td>
                                   <td className="px-3 py-2 text-muted-foreground">—</td>
+                                  <td className="px-3 py-2 text-muted-foreground">—</td>
                                 </tr>
                               );
                             }
-                            const v = byDate.get(d.date) ?? { target: 0, completed: 0 };
+                            const v = byDate.get(d.date) ?? { target: 0, completed: 0, reasons: [] };
+                            const reasonText = v.reasons.length > 0 ? v.reasons.join("; ") : null;
                             return (
                               <tr key={i} className="border-t border-border hover:bg-secondary/30">
                                 <td className="px-3 py-2 font-medium">{d.weekday}</td>
@@ -281,6 +294,13 @@ export default function History() {
                                 <td className="px-3 py-2 text-right tabular-nums">{fmtNum(v.target)}</td>
                                 <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtNum(v.completed)}</td>
                                 <td className="px-3 py-2"><StatusBadge completed={v.completed} target={v.target} /></td>
+                                <td className="px-3 py-2 text-sm max-w-[150px] truncate" title={reasonText ?? ""}>
+                                  {reasonText ? (
+                                    <span className="text-muted-foreground cursor-default">{reasonText}</span>
+                                  ) : (
+                                    <span className="text-muted-foreground/50">—</span>
+                                  )}
+                                </td>
                               </tr>
                             );
                           })}

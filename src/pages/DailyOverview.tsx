@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Layers, RotateCcw, Save } from "lucide-react";
 import { toast } from "sonner";
 
@@ -114,14 +115,21 @@ export default function DailyOverview() {
       toast.error("Enter valid numbers (0 – 1,000,000)");
       return;
     }
+    const payload = {
+      product_id: targetProductId,
+      entry_date: todayISO(),
+      target_qty: t,
+      completed_qty: c,
+      manpower: m,
+    };
+    if (c !== undefined && t !== undefined && c < t) {
+      setReasonModal({ payload, source: "save" });
+      setDelayReason("");
+      setReasonError("");
+      return;
+    }
     try {
-      await upsert.mutateAsync({
-        product_id: targetProductId,
-        entry_date: todayISO(),
-        target_qty: t,
-        completed_qty: c,
-        manpower: m,
-      });
+      await upsert.mutateAsync(payload);
       toast.success("Daily values saved");
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to save");
@@ -130,6 +138,14 @@ export default function DailyOverview() {
 
   const [settingField, setSettingField] = useState<null | "target" | "completed" | "manpower">(null);
   const [invalidField, setInvalidField] = useState<null | "target" | "completed" | "manpower">(null);
+
+  // Reason-for-delay modal
+  const [reasonModal, setReasonModal] = useState<{
+    payload: { product_id: string; entry_date: string; target_qty?: number; completed_qty?: number; manpower?: number };
+    source: "save" | "completed";
+  } | null>(null);
+  const [delayReason, setDelayReason] = useState("");
+  const [reasonError, setReasonError] = useState("");
 
   const setSingleField = async (
     field: "target" | "completed" | "manpower",
@@ -154,6 +170,13 @@ export default function DailyOverview() {
     if (field === "target") payload.target_qty = n;
     if (field === "completed") payload.completed_qty = n;
     if (field === "manpower") payload.manpower = n;
+    // Show reason modal if completed is being set below target
+    if (field === "completed" && n < payload.target_qty) {
+      setReasonModal({ payload, source: "completed" });
+      setDelayReason("");
+      setReasonError("");
+      return;
+    }
     try {
       setSettingField(field);
       await upsert.mutateAsync(payload);
@@ -175,6 +198,24 @@ export default function DailyOverview() {
       ? "Select a product to edit today's values."
       : "Select a sub-product to edit today's values."
     : null;
+
+  const submitWithReason = async () => {
+    const reason = delayReason.trim();
+    if (!reason) {
+      setReasonError("Please enter a reason for the delay.");
+      return;
+    }
+    if (!reasonModal) return;
+    try {
+      await upsert.mutateAsync({ ...reasonModal.payload, delay_reason: reason });
+      toast.success("Daily values saved with delay reason");
+      setReasonModal(null);
+      setDelayReason("");
+      setReasonError("");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to save");
+    }
+  };
 
   return (
     <AppShell>
@@ -325,6 +366,38 @@ export default function DailyOverview() {
           </div>
         </div>
       </div>
+
+      {/* Reason for delay modal */}
+      <Dialog open={reasonModal !== null} onOpenChange={(open) => { if (!open) { setReasonModal(null); setDelayReason(""); setReasonError(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reason for Delay</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Completed ({reasonModal?.payload.completed_qty}) is less than Target ({reasonModal?.payload.target_qty}). Please explain the reason for the shortfall.
+            </p>
+            <textarea
+              className="w-full min-h-[100px] rounded-lg border border-border bg-background p-3 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Enter the reason for the delay..."
+              value={delayReason}
+              onChange={(e) => { setDelayReason(e.target.value); setReasonError(""); }}
+              autoFocus
+            />
+            {reasonError && (
+              <p className="text-sm text-destructive">{reasonError}</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => { setReasonModal(null); setDelayReason(""); setReasonError(""); }}>
+                Cancel
+              </Button>
+              <Button onClick={submitWithReason} disabled={upsert.isPending}>
+                {upsert.isPending ? "Saving…" : "Submit"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

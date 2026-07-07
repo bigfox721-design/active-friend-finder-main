@@ -17,6 +17,7 @@ export type ProductionEntry = {
   completed_qty: number;
   notes: string | null;
   manpower: number | null;
+  delay_reason: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
