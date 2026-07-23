@@ -21,26 +21,21 @@ import {
 } from "@/components/ui/table";
 import { KpiCard } from "@/components/KpiCard";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  Legend,
-  LineChart,
-  Line,
-} from "recharts";
-import { Pencil, Trash2, Plus, Save, X, Workflow, Target, CheckCircle2, Percent } from "lucide-react";
+  Pencil,
+  Trash2,
+  Plus,
+  Save,
+  X,
+  Workflow,
+  Target,
+  CheckCircle2,
+  Percent,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
-  KISHKINDA,
   ProcessDef,
   ProcessEntry,
-  RAW_CUTTING_NAME,
   efficiency,
-  isRawCutting,
   loadEntries,
   loadProcesses,
   processAvailableForBranch,
@@ -51,6 +46,7 @@ import {
 } from "@/lib/processStore";
 import { useBranch } from "@/hooks/useBranch";
 import { useProducts } from "@/hooks/useProduction";
+import { useRole } from "@/hooks/useRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
@@ -58,6 +54,7 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function Processes() {
   const { branches } = useBranch();
+  const { role } = useRole();
   const branchNames = useMemo(() => branches.map((b) => b.name), [branches]);
   const { data: products = [] } = useProducts();
 
@@ -75,7 +72,9 @@ export default function Processes() {
     if (!branchNames.length) return;
     setProcesses((prev) => {
       const pruned = pruneProcessBranches(prev, branchNames);
-      const changed = pruned.some((p, i) => p.availableBranches.length !== prev[i].availableBranches.length);
+      const changed = pruned.some(
+        (p, i) => p.availableBranches.length !== prev[i].availableBranches.length,
+      );
       if (changed) saveProcesses(pruned);
       return pruned;
     });
@@ -162,16 +161,17 @@ export default function Processes() {
   };
 
   const submitEntry = () => {
+    if (role?.role !== "manager") return toast.error("Only managers can add or edit entries.");
     if (!form.branch) return toast.error("Select a branch");
     if (!form.productId) return toast.error("Select a product");
-    if (!form.subProductId) return toast.error("Select a subproduct");
     if (!form.processId) return toast.error("Select a process");
     const target = Number(form.target) || 0;
     const manpower = Number(form.manpower) || 0;
     const output = Number(form.output) || 0;
 
+    const subProdId = form.subProductId || undefined;
     const productName = formProducts.find((p) => p.id === form.productId)?.name ?? "";
-    const subProductName = formSubProducts.find((s) => s.id === form.subProductId)?.name ?? "";
+    const subProductName = subProdId ? formSubProducts.find((s) => s.id === subProdId)?.name ?? "" : "";
 
     // Uniqueness key now includes product + subproduct + process + date + branch
     const existing = entries.find(
@@ -180,7 +180,7 @@ export default function Processes() {
         e.branch === form.branch &&
         e.processId === form.processId &&
         (e.productId ?? "") === form.productId &&
-        (e.subProductId ?? "") === form.subProductId &&
+        (e.subProductId ?? "") === (subProdId ?? "") &&
         e.id !== editingId,
     );
 
@@ -194,7 +194,7 @@ export default function Processes() {
               processId: form.processId,
               productId: form.productId,
               productName,
-              subProductId: form.subProductId,
+              subProductId: subProdId,
               subProductName,
               target,
               manpower,
@@ -218,7 +218,7 @@ export default function Processes() {
         processId: form.processId,
         productId: form.productId,
         productName,
-        subProductId: form.subProductId,
+        subProductId: subProdId,
         subProductName,
         target,
         manpower,
@@ -244,6 +244,10 @@ export default function Processes() {
     });
   };
   const deleteEntry = (id: string) => {
+    if (role?.role !== "manager") {
+      toast.error("Only managers can delete entries.");
+      return;
+    }
     persistEntries(entries.filter((e) => e.id !== id));
     toast.success("Entry deleted");
   };
@@ -255,23 +259,17 @@ export default function Processes() {
   const [editProcName, setEditProcName] = useState("");
   const [editProcBranches, setEditProcBranches] = useState<string[]>([]);
 
-  // Apply Raw Materials Cutting rule: only Kishkinda allowed.
-  const enforceRawRule = (name: string, picked: string[]): string[] => {
-    if (!isRawCutting(name)) return picked;
-    const onlyK = picked.filter((b) => b === KISHKINDA);
-    return onlyK;
-  };
-
   const toggleBranch = (list: string[], name: string): string[] =>
     list.includes(name) ? list.filter((b) => b !== name) : [...list, name];
 
   const addProcess = () => {
+    if (role?.role !== "manager") {
+      toast.error("Only managers can add processes.");
+      return;
+    }
     const name = newProcName.trim();
     if (!name) return toast.error("Process name required");
     if (!newProcBranches.length) return toast.error("Select at least one branch");
-    if (isRawCutting(name) && newProcBranches.some((b) => b !== KISHKINDA)) {
-      return toast.error(`"${RAW_CUTTING_NAME}" is allowed only for ${KISHKINDA}`);
-    }
     persistProcesses([...processes, { id: uid(), name, availableBranches: newProcBranches }]);
     setNewProcName("");
     setNewProcBranches([]);
@@ -283,20 +281,27 @@ export default function Processes() {
     setEditProcBranches(p.availableBranches);
   };
   const saveEditProcess = () => {
+    if (role?.role !== "manager") {
+      toast.error("Only managers can edit processes.");
+      return;
+    }
     if (!editProcName.trim() || !editProcId) return;
     if (!editProcBranches.length) return toast.error("Select at least one branch");
-    if (isRawCutting(editProcName) && editProcBranches.some((b) => b !== KISHKINDA)) {
-      return toast.error(`"${RAW_CUTTING_NAME}" is allowed only for ${KISHKINDA}`);
-    }
     persistProcesses(
       processes.map((p) =>
-        p.id === editProcId ? { ...p, name: editProcName.trim(), availableBranches: editProcBranches } : p,
+        p.id === editProcId
+          ? { ...p, name: editProcName.trim(), availableBranches: editProcBranches }
+          : p,
       ),
     );
     setEditProcId(null);
     toast.success("Process updated");
   };
   const deleteProcess = (id: string) => {
+    if (role?.role !== "manager") {
+      toast.error("Only managers can delete processes.");
+      return;
+    }
     if (!confirm("Delete this process? Existing entries that reference it will remain.")) return;
     persistProcesses(processes.filter((p) => p.id !== id));
     toast.success("Process deleted");
@@ -350,13 +355,15 @@ export default function Processes() {
   }, [entries, fProduct, fSubProduct]);
 
   const filtered = useMemo(() => {
+    // Require specific values on date, branch, product, and process before showing data
+    if (!fDate || fBranch === "__all" || fProduct === "__all" || fProcess === "__all") return [];
     return entries.filter(
       (e) =>
-        (!fDate || e.date === fDate) &&
-        (fBranch === "__all" || e.branch === fBranch) &&
-        (fProduct === "__all" || (e.productId ?? "") === fProduct) &&
+        e.date === fDate &&
+        e.branch === fBranch &&
+        (e.productId ?? "") === fProduct &&
         (fSubProduct === "__all" || (e.subProductId ?? "") === fSubProduct) &&
-        (fProcess === "__all" || e.processId === fProcess),
+        e.processId === fProcess,
     );
   }, [entries, fDate, fBranch, fProduct, fSubProduct, fProcess]);
 
@@ -367,7 +374,9 @@ export default function Processes() {
     const t = filtered.reduce((s, e) => s + e.target, 0);
     const o = filtered.reduce((s, e) => s + e.output, 0);
     const eff = filtered.length
-      ? Math.round(filtered.reduce((s, e) => s + efficiency(e.target, e.output), 0) / filtered.length)
+      ? Math.round(
+          filtered.reduce((s, e) => s + efficiency(e.target, e.output), 0) / filtered.length,
+        )
       : 0;
     return { t, o, eff };
   }, [filtered]);
@@ -389,28 +398,6 @@ export default function Processes() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, processes]);
 
-  const mostLagging = useMemo(() => {
-    if (!procEff.length) return null;
-    return [...procEff].sort((a, b) => a.efficiency - b.efficiency)[0];
-  }, [procEff]);
-
-  const branchCompare = useMemo(() => {
-    return branchNames.map((b) => {
-      const rows = filtered.filter((e) => e.branch === b);
-      const target = rows.reduce((s, e) => s + e.target, 0);
-      const output = rows.reduce((s, e) => s + e.output, 0);
-      return { name: b, target, output, efficiency: efficiency(target, output) };
-    });
-  }, [filtered, branchNames]);
-
-  const dailyTrend = useMemo(() => {
-    const map = new Map<string, number>();
-    filtered.forEach((e) => map.set(e.date, (map.get(e.date) || 0) + e.output));
-    return Array.from(map.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([date, output]) => ({ date, output }));
-  }, [filtered]);
-
   // Branch checkbox group used in "Available in" cells.
   const BranchCheckboxes = ({
     selected,
@@ -421,29 +408,23 @@ export default function Processes() {
     onChange: (next: string[]) => void;
     processName: string;
   }) => {
-    const rawLock = isRawCutting(processName);
     return (
       <div className="flex flex-wrap gap-x-4 gap-y-2">
         {branchNames.length === 0 && (
           <span className="text-xs text-muted-foreground">No branches configured</span>
         )}
         {branchNames.map((b) => {
-          const disabled = rawLock && b !== KISHKINDA;
           const id = `chk-${processName}-${b}`;
           return (
             <label
               key={b}
               htmlFor={id}
-              className={`inline-flex items-center gap-2 text-sm ${disabled ? "opacity-50" : "cursor-pointer"}`}
+              className="inline-flex items-center gap-2 text-sm cursor-pointer"
             >
               <Checkbox
                 id={id}
                 checked={selected.includes(b)}
-                disabled={disabled}
-                onCheckedChange={() => {
-                  if (disabled) return;
-                  onChange(enforceRawRule(processName, toggleBranch(selected, b)));
-                }}
+                onCheckedChange={() => onChange(toggleBranch(selected, b))}
               />
               <span>{b}</span>
             </label>
@@ -483,89 +464,143 @@ export default function Processes() {
         <h2 className="font-display text-xl font-semibold mb-4">
           {editingId ? "Edit Entry" : "Add / Update Entry"}
         </h2>
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-          <div className="col-span-2 md:col-span-1">
-            <Label>Date</Label>
-            <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitEntry();
+          }}
+        >
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            <div className="col-span-2 md:col-span-1">
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={form.date}
+                onChange={(e) => setForm({ ...form, date: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Branch</Label>
+              <Select
+                value={form.branch || undefined}
+                onValueChange={(v) => setForm({ ...form, branch: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branchNames.map((b) => (
+                    <SelectItem key={b} value={b}>
+                      {b}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Product</Label>
+              <Select
+                value={form.productId || undefined}
+                onValueChange={(v) => setForm({ ...form, productId: v, subProductId: "" })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {formProducts.length === 0 && (
+                    <SelectItem value="__none" disabled>
+                      No products
+                    </SelectItem>
+                  )}
+                  {formProducts.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Subproduct</Label>
+              <Select
+                value={form.subProductId || undefined}
+                onValueChange={(v) => setForm({ ...form, subProductId: v })}
+                disabled={!form.productId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={form.productId ? "Select" : "Pick product first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {formSubProducts.length === 0 && (
+                    <SelectItem value="__none" disabled>
+                      No subproducts
+                    </SelectItem>
+                  )}
+                  {formSubProducts.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Process</Label>
+              <Select
+                value={form.processId}
+                onValueChange={(v) => setForm({ ...form, processId: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableProcesses.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Target</Label>
+              <Input
+                type="number"
+                min="0"
+                value={form.target}
+                onChange={(e) => setForm({ ...form, target: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Manpower</Label>
+              <Input
+                type="number"
+                min="0"
+                value={form.manpower}
+                onChange={(e) => setForm({ ...form, manpower: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Output</Label>
+              <Input
+                type="number"
+                min="0"
+                value={form.output}
+                onChange={(e) => setForm({ ...form, output: e.target.value })}
+              />
+            </div>
           </div>
-          <div>
-            <Label>Branch</Label>
-            <Select value={form.branch || undefined} onValueChange={(v) => setForm({ ...form, branch: v })}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                {branchNames.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Product</Label>
-            <Select
-              value={form.productId || undefined}
-              onValueChange={(v) => setForm({ ...form, productId: v, subProductId: "" })}
-            >
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                {formProducts.length === 0 && (
-                  <SelectItem value="__none" disabled>No products</SelectItem>
-                )}
-                {formProducts.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Subproduct</Label>
-            <Select
-              value={form.subProductId || undefined}
-              onValueChange={(v) => setForm({ ...form, subProductId: v })}
-              disabled={!form.productId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={form.productId ? "Select" : "Pick product first"} />
-              </SelectTrigger>
-              <SelectContent>
-                {formSubProducts.length === 0 && (
-                  <SelectItem value="__none" disabled>No subproducts</SelectItem>
-                )}
-                {formSubProducts.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Process</Label>
-            <Select value={form.processId} onValueChange={(v) => setForm({ ...form, processId: v })}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                {availableProcesses.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Target</Label>
-            <Input type="number" min="0" value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} />
-          </div>
-          <div>
-            <Label>Manpower</Label>
-            <Input type="number" min="0" value={form.manpower} onChange={(e) => setForm({ ...form, manpower: e.target.value })} />
-          </div>
-          <div>
-            <Label>Output</Label>
-            <Input type="number" min="0" value={form.output} onChange={(e) => setForm({ ...form, output: e.target.value })} />
-          </div>
-        </div>
-        <div className="flex gap-2 mt-4">
-          <Button onClick={submitEntry}>
-            <Save className="h-4 w-4 mr-1" /> {editingId ? "Save Changes" : "Save Entry"}
-          </Button>
-          {editingId && (
-            <Button variant="outline" onClick={resetForm}>
-              <X className="h-4 w-4 mr-1" /> Cancel
+          <div className="flex gap-2 mt-4">
+            <Button type="submit" disabled={role?.role !== "manager"}>
+              <Save className="h-4 w-4 mr-1" /> {editingId ? "Save Changes" : "Save Entry"}
             </Button>
-          )}
-        </div>
+            {editingId && (
+              <Button variant="outline" onClick={resetForm}>
+                <X className="h-4 w-4 mr-1" /> Cancel
+              </Button>
+            )}
+          </div>
+        </form>
       </section>
 
       {/* Filters */}
@@ -579,20 +614,38 @@ export default function Processes() {
           <div>
             <Label>Filter Branch</Label>
             <Select value={fBranch} onValueChange={setFBranch}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all">All branches</SelectItem>
-                {branchNames.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                {branchNames.map((b) => (
+                  <SelectItem key={b} value={b}>
+                    {b}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div>
             <Label>Filter Product</Label>
-            <Select value={fProduct} onValueChange={(v) => { setFProduct(v); setFSubProduct("__all"); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select
+              value={fProduct}
+              onValueChange={(v) => {
+                setFProduct(v);
+                setFSubProduct("__all");
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all">All products</SelectItem>
-                {products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                {products.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -604,12 +657,16 @@ export default function Processes() {
               disabled={fProduct === "__all"}
             >
               <SelectTrigger>
-                <SelectValue placeholder={fProduct === "__all" ? "Pick product first" : "All subproducts"} />
+                <SelectValue
+                  placeholder={fProduct === "__all" ? "Pick product first" : "All subproducts"}
+                />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all">All subproducts</SelectItem>
                 {filterSubProducts.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -617,13 +674,19 @@ export default function Processes() {
           <div>
             <Label>Filter Process</Label>
             <Select value={fProcess} onValueChange={setFProcess}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all">All processes</SelectItem>
                 {processes
                   .filter((p) => fBranch === "__all" || processAvailableForBranch(p, fBranch))
                   .filter((p) => !relevantProcessIds || relevantProcessIds.has(p.id))
-                  .map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  .map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -662,7 +725,11 @@ export default function Processes() {
             </TableHeader>
             <TableBody>
               {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">No entries</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                    No entries
+                  </TableCell>
+                </TableRow>
               )}
               {filtered.map((e) => {
                 const eff = efficiency(e.target, e.output);
@@ -671,21 +738,45 @@ export default function Processes() {
                   <TableRow key={e.id} className={lag ? "bg-red-500/5" : ""}>
                     <TableCell>{e.date}</TableCell>
                     <TableCell>{e.branch}</TableCell>
-                    <TableCell>{e.productName || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell>{e.subProductName || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell>
+                      {e.productName || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      {e.subProductName || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
                     <TableCell>{procName(e.processId)}</TableCell>
                     <TableCell className="text-right">{e.target}</TableCell>
                     <TableCell className="text-right">{e.manpower}</TableCell>
                     <TableCell className="text-right">{e.output}</TableCell>
-                    <TableCell className={`text-right font-semibold ${lag ? "text-red-500" : "text-emerald-500"}`}>{eff}%</TableCell>
+                    <TableCell
+                      className={`text-right font-semibold ${lag ? "text-red-500" : "text-emerald-500"}`}
+                    >
+                      {eff}%
+                    </TableCell>
                     <TableCell>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${lag ? "bg-red-500/15 text-red-500" : "bg-emerald-500/15 text-emerald-500"}`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${lag ? "bg-red-500/15 text-red-500" : "bg-emerald-500/15 text-emerald-500"}`}
+                      >
                         {lag ? "🔴 Lagging" : "✅ Good"}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => editEntry(e)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => deleteEntry(e.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => editEntry(e)}
+                        disabled={role?.role !== "manager"}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteEntry(e.id)}
+                        disabled={role?.role !== "manager"}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
@@ -695,89 +786,24 @@ export default function Processes() {
         </div>
       </section>
 
-      {/* Lag analysis */}
-      <section className="glass rounded-2xl p-4 md:p-6 mb-6">
-        <h2 className="font-display text-xl font-semibold mb-4">Lag Analysis</h2>
-        <div className="grid md:grid-cols-2 gap-6">
-          <div>
-            <p className="text-sm text-muted-foreground mb-2">Process-wise efficiency</p>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={procEff}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={60} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="efficiency" name="Efficiency %" fill="hsl(var(--primary))" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <ul className="mt-3 space-y-1 text-sm">
-              {procEff.map((p) => (
-                <li key={p.name} className="flex items-center justify-between">
-                  <span>{p.name}</span>
-                  <span className={p.efficiency < 80 ? "text-red-500 font-semibold" : "text-emerald-500 font-semibold"}>
-                    {p.efficiency}% {p.efficiency < 80 ? "🔴" : "✅"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground mb-2">Branch comparison</p>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={branchCompare}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="target" fill="hsl(var(--muted-foreground))" name="Target" />
-                  <Bar dataKey="output" fill="hsl(var(--primary))" name="Output" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            {mostLagging && (
-              <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
-                <p className="text-sm">
-                  <strong className="text-red-500">Most lagging process:</strong> {mostLagging.name} — {mostLagging.efficiency}%
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
 
-      {/* Daily trend */}
-      <section className="glass rounded-2xl p-4 md:p-6 mb-6">
-        <h2 className="font-display text-xl font-semibold mb-4">Daily Output Trend</h2>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={dailyTrend}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="output" stroke="hsl(var(--primary))" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
 
       {/* Process management */}
       <section className="glass rounded-2xl p-4 md:p-6 mb-6">
         <h2 className="font-display text-xl font-semibold mb-4">Manage Processes</h2>
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4 items-start">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            addProcess();
+          }}
+          className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4 items-start"
+        >
           <div className="md:col-span-4">
             <Label>New process name</Label>
             <Input
               value={newProcName}
               onChange={(e) => {
-                const v = e.target.value;
-                setNewProcName(v);
-                // Re-apply Raw Cutting rule if the name changes.
-                setNewProcBranches((prev) => enforceRawRule(v, prev));
+                setNewProcName(e.target.value);
               }}
               placeholder="e.g. Quality Check"
             />
@@ -790,17 +816,15 @@ export default function Processes() {
                 onChange={setNewProcBranches}
                 processName={newProcName}
               />
-              {isRawCutting(newProcName) && (
-                <p className="mt-2 text-xs text-amber-500">
-                  "{RAW_CUTTING_NAME}" is restricted to {KISHKINDA} only.
-                </p>
-              )}
+
             </div>
           </div>
           <div className="md:col-span-2 flex items-end h-full">
-            <Button onClick={addProcess} className="w-full"><Plus className="h-4 w-4 mr-1" /> Add</Button>
+            <Button type="submit" className="w-full" disabled={role?.role !== "manager"}>
+              <Plus className="h-4 w-4 mr-1" /> Add
+            </Button>
           </div>
-        </div>
+        </form>
 
         <Table>
           <TableHeader>
@@ -817,14 +841,18 @@ export default function Processes() {
                   {editProcId === p.id ? (
                     <Input
                       value={editProcName}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setEditProcName(v);
-                        setEditProcBranches((prev) => enforceRawRule(v, prev));
+                      onChange={(e) => setEditProcName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          saveEditProcess();
+                        }
                       }}
                     />
                   ) : (
-                    <span className="flex items-center gap-2"><Workflow className="h-4 w-4 text-primary" /> {p.name}</span>
+                    <span className="flex items-center gap-2">
+                      <Workflow className="h-4 w-4 text-primary" /> {p.name}
+                    </span>
                   )}
                 </TableCell>
                 <TableCell className="align-top">
@@ -836,7 +864,8 @@ export default function Processes() {
                     />
                   ) : p.availableBranches.length === 0 ? (
                     <span className="text-xs text-muted-foreground">— none —</span>
-                  ) : p.availableBranches.length === branchNames.length && branchNames.length > 0 ? (
+                  ) : p.availableBranches.length === branchNames.length &&
+                    branchNames.length > 0 ? (
                     <span className="text-sm">All branches</span>
                   ) : (
                     <span className="text-sm">{p.availableBranches.join(", ")}</span>
@@ -845,13 +874,35 @@ export default function Processes() {
                 <TableCell className="text-right align-top">
                   {editProcId === p.id ? (
                     <>
-                      <Button size="sm" onClick={saveEditProcess}><Save className="h-3.5 w-3.5" /></Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditProcId(null)}><X className="h-3.5 w-3.5" /></Button>
+                      <Button
+                        size="sm"
+                        onClick={saveEditProcess}
+                        disabled={role?.role !== "manager"}
+                      >
+                        <Save className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditProcId(null)}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
                     </>
                   ) : (
                     <>
-                      <Button size="sm" variant="ghost" onClick={() => startEditProcess(p)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button size="sm" variant="ghost" onClick={() => deleteProcess(p.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => startEditProcess(p)}
+                        disabled={role?.role !== "manager"}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deleteProcess(p.id)}
+                        disabled={role?.role !== "manager"}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
                     </>
                   )}
                 </TableCell>

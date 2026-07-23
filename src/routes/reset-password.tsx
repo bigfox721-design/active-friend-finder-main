@@ -4,5 +4,5 @@ import ResetPassword from "@/pages/ResetPassword";
 
 export const Route = createFileRoute("/reset-password")({
   head: () => ({ meta: [{ title: "Reset Password — Branch Keeper" }] }),
-  component: () => (<ResetPassword />),
+  component: () => <ResetPassword />,
 });

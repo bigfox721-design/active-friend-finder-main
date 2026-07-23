@@ -1,5 +1,11 @@
 import { useBranch } from "@/hooks/useBranch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Building2 } from "lucide-react";
 
 export const BranchSelector = ({ className }: { className?: string }) => {
@@ -14,7 +20,9 @@ export const BranchSelector = ({ className }: { className?: string }) => {
         </SelectTrigger>
         <SelectContent className="bg-popover z-50">
           {branches.map((b) => (
-            <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+            <SelectItem key={b.id} value={b.id}>
+              {b.name}
+            </SelectItem>           
           ))}
         </SelectContent>
       </Select>

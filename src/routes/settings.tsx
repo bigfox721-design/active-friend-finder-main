@@ -4,5 +4,9 @@ import Settings from "@/pages/Settings";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — Branch Keeper" }] }),
-  component: () => (<ProtectedRoute><Settings /></ProtectedRoute>),
+  component: () => (
+    <ProtectedRoute requiredRole="manager">
+      <Settings />
+    </ProtectedRoute>
+  ),
 });

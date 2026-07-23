@@ -4,5 +4,9 @@ import Profile from "@/pages/Profile";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Profile — Branch Keeper" }] }),
-  component: () => (<ProtectedRoute><Profile /></ProtectedRoute>),
+  component: () => (
+    <ProtectedRoute>
+      <Profile />
+    </ProtectedRoute>
+  ),
 });

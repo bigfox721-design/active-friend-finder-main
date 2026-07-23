@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 export const useTheme = () => {
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     if (typeof window === "undefined") return "dark";
+    if (typeof window === "undefined") return "dark";
     return (localStorage.getItem("bfp-theme") as "dark" | "light") || "dark";
   });
 

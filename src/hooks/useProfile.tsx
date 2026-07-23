@@ -23,9 +23,16 @@ export const useProfile = () => {
         .maybeSingle();
       if (error) throw error;
       if (!data) {
-        const fallback = { id: user.id, display_name: user.email?.split("@")[0] ?? null, avatar_url: null };
+        const fallback = {
+          id: user.id,
+          display_name: user.email?.split("@")[0] ?? null,
+          avatar_url: null,
+        };
         // Fire-and-forget insert so the UI doesn't wait
-        (supabase as any).from("profiles").insert(fallback).then(() => {});
+        (supabase as any)
+          .from("profiles")
+          .insert(fallback)
+          .then(() => {});
         return fallback;
       }
       return data as Profile;
@@ -61,7 +68,10 @@ export const useUploadAvatar = () => {
       if (upErr) throw upErr;
       const { data } = supabase.storage.from("avatars").getPublicUrl(path);
       const url = data.publicUrl;
-      const { error: updErr } = await (supabase as any).from("profiles").update({ avatar_url: url }).eq("id", user.id);
+      const { error: updErr } = await (supabase as any)
+        .from("profiles")
+        .update({ avatar_url: url })
+        .eq("id", user.id);
       if (updErr) throw updErr;
       return url;
     },
@@ -79,7 +89,10 @@ export const useRemoveAvatar = () => {
       if (list && list.length) {
         await supabase.storage.from("avatars").remove(list.map((f) => `${user.id}/${f.name}`));
       }
-      const { error } = await (supabase as any).from("profiles").update({ avatar_url: null }).eq("id", user.id);
+      const { error } = await (supabase as any)
+        .from("profiles")
+        .update({ avatar_url: null })
+        .eq("id", user.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["profile", user?.id] }),

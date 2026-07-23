@@ -9,13 +9,13 @@ export type ProcessDef = {
 
 export type ProcessEntry = {
   id: string;
-  date: string;        // YYYY-MM-DD
-  branch: string;      // branch name
+  date: string; // YYYY-MM-DD
+  branch: string; // branch name
   processId: string;
-  productId?: string;       // linked product (optional for backwards-compat)
-  productName?: string;     // denormalized for display
-  subProductId?: string;    // linked sub-product
-  subProductName?: string;  // denormalized for display
+  productId?: string; // linked product (optional for backwards-compat)
+  productName?: string; // denormalized for display
+  subProductId?: string; // linked sub-product
+  subProductName?: string; // denormalized for display
   target: number;
   manpower: number;
   output: number;
@@ -31,11 +31,15 @@ export const THIRUMUDIVAKKAM = "Thirumudivakkam";
 export const RAW_CUTTING_NAME = "Raw Materials Cutting";
 
 const DEFAULT_PROCESSES: ProcessDef[] = [
-  { id: "p_raw_cutting", name: RAW_CUTTING_NAME, availableBranches: [KISHKINDA] },
+  { id: "p_raw_cutting", name: RAW_CUTTING_NAME, availableBranches: [KISHKINDA, THIRUMUDIVAKKAM] },
   { id: "p_base_framing", name: "Base Framing", availableBranches: [KISHKINDA, THIRUMUDIVAKKAM] },
   { id: "p_full_setting", name: "Full Setting", availableBranches: [KISHKINDA, THIRUMUDIVAKKAM] },
   { id: "p_full_welding", name: "Full Welding", availableBranches: [KISHKINDA, THIRUMUDIVAKKAM] },
-  { id: "p_paint_pack", name: "Painting and Packaging", availableBranches: [KISHKINDA, THIRUMUDIVAKKAM] },
+  {
+    id: "p_paint_pack",
+    name: "Painting and Packaging",
+    availableBranches: [KISHKINDA, THIRUMUDIVAKKAM],
+  },
 ];
 
 const isBrowser = typeof window !== "undefined";
@@ -118,7 +122,4 @@ export function pruneProcessBranches(list: ProcessDef[], validBranches: string[]
   });
 }
 
-// Enforce the Raw Materials Cutting → Kishkinda-only rule.
-export function isRawCutting(name: string) {
-  return name.trim().toLowerCase() === RAW_CUTTING_NAME.toLowerCase();
-}
+

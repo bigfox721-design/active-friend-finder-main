@@ -20,7 +20,9 @@ export default function ResetPassword() {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") setReady(true);
     });
-    supabase.auth.getSession().then(({ data }) => { if (data.session) setReady(true); });
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setReady(true);
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -36,13 +38,17 @@ export default function ResetPassword() {
       navigate("/", { replace: true });
     } catch (err: any) {
       toast.error(err.message);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen grid-bg flex items-center justify-center p-4">
       <div className="w-full max-w-md glass rounded-2xl p-8 animate-fade-in">
-        <div className="flex justify-center mb-6"><Logo size="lg" /></div>
+        <div className="flex justify-center mb-6">
+          <Logo size="lg" />
+        </div>
         <h1 className="text-2xl font-display font-bold text-center mb-6">Set a new password</h1>
         {!ready ? (
           <p className="text-sm text-muted-foreground text-center">Validating reset link…</p>
@@ -50,13 +56,33 @@ export default function ResetPassword() {
           <form onSubmit={submit} className="space-y-4">
             <div>
               <Label htmlFor="pw">New password</Label>
-              <Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} maxLength={72} />
+              <Input
+                id="pw"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                maxLength={72}
+              />
             </div>
             <div>
               <Label htmlFor="pw2">Confirm password</Label>
-              <Input id="pw2" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={6} maxLength={72} />
+              <Input
+                id="pw2"
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                required
+                minLength={6}
+                maxLength={72}
+              />
             </div>
-            <Button type="submit" className="w-full bg-gradient-primary text-primary-foreground shadow-glow-primary font-semibold" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full bg-gradient-primary text-primary-foreground shadow-glow-primary font-semibold"
+              disabled={loading}
+            >
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Update password
             </Button>

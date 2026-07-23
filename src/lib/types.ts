@@ -24,3 +24,16 @@ export type ProductionEntry = {
 };
 
 export type EntryWithProduct = ProductionEntry & { product: Product };
+
+export type UserRole = "manager" | "user";
+
+export type AppUser = {
+  id: string;
+  name: string | null;
+  email?: string | null;
+  role: UserRole;
+};
+
+export const isManager = (user: AppUser | null): boolean => user?.role === "manager";
+
+export const isUser = (user: AppUser | null): boolean => user?.role === "user";

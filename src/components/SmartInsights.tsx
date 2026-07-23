@@ -15,7 +15,11 @@ export const SmartInsights = ({ entries }: { entries: EntryWithProduct[] }) => {
       </div>
       <ul className="space-y-2.5">
         {insights.map((i, idx) => (
-          <li key={idx} className="flex items-start gap-2.5 text-sm animate-slide-in" style={{ animationDelay: `${idx * 60}ms` }}>
+          <li
+            key={idx}
+            className="flex items-start gap-2.5 text-sm animate-slide-in"
+            style={{ animationDelay: `${idx * 60}ms` }}
+          >
             <i.icon className={`h-4 w-4 mt-0.5 ${i.color}`} />
             <span className="text-foreground/90">{i.text}</span>
           </li>
@@ -33,9 +37,13 @@ function generateInsights(entries: EntryWithProduct[]) {
   const past = entries.filter((e) => e.entry_date !== today);
 
   // Today vs 7-day avg
-  const last7Dates = Array.from(new Set(past.map((e) => e.entry_date))).sort().slice(-7);
+  const last7Dates = Array.from(new Set(past.map((e) => e.entry_date)))
+    .sort()
+    .slice(-7);
   const last7 = past.filter((e) => last7Dates.includes(e.entry_date));
-  const avgPerDay = last7.length ? last7.reduce((s, e) => s + e.completed_qty, 0) / Math.max(1, last7Dates.length) : 0;
+  const avgPerDay = last7.length
+    ? last7.reduce((s, e) => s + e.completed_qty, 0) / Math.max(1, last7Dates.length)
+    : 0;
   const todayTotal = todays.reduce((s, e) => s + e.completed_qty, 0);
   if (avgPerDay > 0) {
     const diff = ((todayTotal - avgPerDay) / avgPerDay) * 100;
@@ -65,7 +73,8 @@ function generateInsights(entries: EntryWithProduct[]) {
   if (missed.length) {
     out.push({
       text: `${missed.length} product${missed.length > 1 ? "s" : ""} missed today's target: ${missed.map((m) => m.product?.name).join(", ")}.`,
-      icon: AlertTriangle, color: "text-destructive",
+      icon: AlertTriangle,
+      color: "text-destructive",
     });
   }
 
@@ -74,17 +83,21 @@ function generateInsights(entries: EntryWithProduct[]) {
   if (noTargets.length || (entries.length && !todays.length)) {
     out.push({
       text: `Morning targets not set for some products. Set them to enable status tracking.`,
-      icon: AlertTriangle, color: "text-warning",
+      icon: AlertTriangle,
+      color: "text-warning",
     });
   }
 
   // Best performer
   if (todays.length > 1) {
-    const best = [...todays].filter((e) => e.target_qty > 0).sort((a, b) => (b.completed_qty / b.target_qty) - (a.completed_qty / a.target_qty))[0];
+    const best = [...todays]
+      .filter((e) => e.target_qty > 0)
+      .sort((a, b) => b.completed_qty / b.target_qty - a.completed_qty / a.target_qty)[0];
     if (best) {
       out.push({
         text: `Top performer today: ${best.product?.name} at ${Math.round((best.completed_qty / best.target_qty) * 100)}% of target.`,
-        icon: Sparkles, color: "text-accent",
+        icon: Sparkles,
+        color: "text-accent",
       });
     }
   }
@@ -98,12 +111,14 @@ function generateInsights(entries: EntryWithProduct[]) {
     if (ach >= 1 && mp <= 5) {
       out.push({
         text: `${e.product?.name}: target hit with only ${mp} worker${mp > 1 ? "s" : ""} (${perWorker.toFixed(1)} ${e.product?.unit}/worker). Lean win!`,
-        icon: Sparkles, color: "text-success",
+        icon: Sparkles,
+        color: "text-success",
       });
     } else if (ach < 0.7 && mp >= 8) {
       out.push({
         text: `${e.product?.name}: ${mp} workers but only ${Math.round(ach * 100)}% of target — productivity ${perWorker.toFixed(1)}/worker.`,
-        icon: AlertTriangle, color: "text-destructive",
+        icon: AlertTriangle,
+        color: "text-destructive",
       });
     }
   });
@@ -117,7 +132,8 @@ function generateInsights(entries: EntryWithProduct[]) {
     if (Math.abs(d) >= 10) {
       out.push({
         text: `Manpower today (${todayMp}) is ${Math.abs(d)}% ${d >= 0 ? "above" : "below"} 7-day average (${Math.round(avgMp)}).`,
-        icon: Users, color: d >= 0 ? "text-warning" : "text-accent",
+        icon: Users,
+        color: d >= 0 ? "text-warning" : "text-accent",
       });
     }
   }

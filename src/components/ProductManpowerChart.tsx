@@ -1,7 +1,15 @@
 import { useMemo, useState } from "react";
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, LabelList,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LabelList,
 } from "recharts";
 import { Card } from "@/components/ui/card";
 import { BarChart3, LineChart as LineIcon } from "lucide-react";
@@ -69,7 +77,12 @@ export const ProductManpowerChart = ({
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} allowDecimals={false} />
                 <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "hsl(var(--muted)/0.3)" }} />
                 <Bar dataKey="manpower" name="Manpower" fill={GREEN} radius={[8, 8, 0, 0]}>
-                  <LabelList dataKey="manpower" position="top" fill="hsl(var(--foreground))" fontSize={11} />
+                  <LabelList
+                    dataKey="manpower"
+                    position="top"
+                    fill="hsl(var(--foreground))"
+                    fontSize={11}
+                  />
                 </Bar>
               </BarChart>
             ) : (
@@ -87,7 +100,12 @@ export const ProductManpowerChart = ({
                   dot={{ r: 5, fill: GREEN }}
                   activeDot={{ r: 7 }}
                 >
-                  <LabelList dataKey="manpower" position="top" fill="hsl(var(--foreground))" fontSize={11} />
+                  <LabelList
+                    dataKey="manpower"
+                    position="top"
+                    fill="hsl(var(--foreground))"
+                    fontSize={11}
+                  />
                 </Line>
               </LineChart>
             )}
@@ -103,7 +121,9 @@ const Btn = ({ active, children, onClick }: any) => (
     onClick={onClick}
     className={cn(
       "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-smooth",
-      active ? "bg-primary text-primary-foreground shadow-glow-primary" : "text-muted-foreground hover:text-foreground"
+      active
+        ? "bg-primary text-primary-foreground shadow-glow-primary"
+        : "text-muted-foreground hover:text-foreground",
     )}
   >
     {children}

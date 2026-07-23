@@ -11,13 +11,18 @@ type Ctx = {
   loading: boolean;
 };
 
-const BranchCtx = createContext<Ctx>({ branchId: null, setBranchId: () => {}, branches: [], loading: true });
+const BranchCtx = createContext<Ctx>({
+  branchId: null,
+  setBranchId: () => {},
+  branches: [],
+  loading: true,
+});
 
 const STORAGE_KEY = "selected_branch_id";
 
 export const BranchProvider = ({ children }: { children: ReactNode }) => {
   const [branchId, setBranchIdState] = useState<string | null>(() =>
-    typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null
+    typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null,
   );
 
   const safeSet = (id: string) => {
@@ -27,7 +32,7 @@ export const BranchProvider = ({ children }: { children: ReactNode }) => {
   const { data: branches = [], isLoading } = useQuery({
     queryKey: ["branches"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("branches").select("*").order("name");
+      const { data, error } = await supabase.from("branches").select("*").order("name");
       if (error) throw error;
       return data as Branch[];
     },

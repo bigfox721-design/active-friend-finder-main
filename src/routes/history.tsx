@@ -5,7 +5,7 @@ import History from "@/pages/History";
 export const Route = createFileRoute("/history")({
   head: () => ({ meta: [{ title: "History — Branch Keeper" }] }),
   component: () => (
-    <ProtectedRoute>
+    <ProtectedRoute requiredRole="manager">
       <History />
     </ProtectedRoute>
   ),

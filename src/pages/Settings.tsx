@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { User, Bell, Palette, Mail, Save, Send, Loader2 } from "lucide-react";
+import { User, Bell, Palette, Mail, Save, Send, Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
 import { useTheme } from "@/hooks/useTheme";
+import { useClearAllData } from "@/hooks/useClearAllData";
 import { saveSmtpConfig, getSmtpConfig, sendTestEmail } from "@/lib/smtp.functions";
 
 const NOTIF_KEY = "bfp-notifications-enabled";
@@ -40,6 +41,9 @@ export default function Settings() {
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
   const [testTo, setTestTo] = useState("");
+  const [clearConfirm, setClearConfirm] = useState(false);
+  const [clearTyped, setClearTyped] = useState("");
+  const clearAllData = useClearAllData();
 
   const fetchSmtp = useServerFn(getSmtpConfig);
   const persistSmtp = useServerFn(saveSmtpConfig);
@@ -121,6 +125,18 @@ export default function Settings() {
     }
   };
 
+  const handleClearAllData = async () => {
+    if (clearTyped !== "DELETE") return;
+    try {
+      await clearAllData.mutateAsync();
+      toast.success("All data cleared");
+      setClearConfirm(false);
+      setClearTyped("");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to clear data");
+    }
+  };
+
   const onSendTest = async () => {
     if (!/^\S+@\S+\.\S+$/.test(testTo)) return toast.error("Enter a valid recipient email");
     setSendingTest(true);
@@ -138,7 +154,9 @@ export default function Settings() {
     <AppShell>
       <div className="mb-6">
         <h1 className="font-display text-3xl font-bold tracking-tight mb-1">Settings</h1>
-        <p className="text-muted-foreground text-sm">Manage your profile, appearance, alerts, and email server.</p>
+        <p className="text-muted-foreground text-sm">
+          Manage your profile, appearance, alerts, and email server.
+        </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -148,8 +166,16 @@ export default function Settings() {
             <User className="h-5 w-5 text-primary" />
             <h2 className="font-display text-lg font-semibold">Profile</h2>
           </div>
-          <Label className="font-medium" htmlFor="username">Username</Label>
-          <div className="flex gap-2 mt-2">
+          <Label className="font-medium" htmlFor="username">
+            Username
+          </Label>
+          <form
+            className="flex gap-2 mt-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveUsername();
+            }}
+          >
             <Input
               id="username"
               value={username}
@@ -157,11 +183,15 @@ export default function Settings() {
               maxLength={60}
               placeholder="Your display name"
             />
-            <Button onClick={saveUsername} disabled={updateProfile.isPending} className="gap-2">
-              {updateProfile.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            <Button type="submit" disabled={updateProfile.isPending} className="gap-2">
+              {updateProfile.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
               Save
             </Button>
-          </div>
+          </form>
         </Card>
 
         {/* Appearance */}
@@ -188,7 +218,10 @@ export default function Settings() {
           <div className="flex items-center justify-between">
             <div>
               <Label className="font-medium">Enable notifications</Label>
-              <p className="text-xs text-muted-foreground">Send email alerts when daily production targets are missed. Requires SMTP configuration below.</p>
+              <p className="text-xs text-muted-foreground">
+                Send email alerts when daily production targets are missed. Requires SMTP
+                configuration below.
+              </p>
             </div>
             <Switch checked={notifications} onCheckedChange={onToggleNotif} />
           </div>
@@ -201,68 +234,97 @@ export default function Settings() {
             <h2 className="font-display text-lg font-semibold">Email Configuration</h2>
           </div>
           <p className="text-sm text-muted-foreground mb-4">
-            Configure an SMTP server (e.g. Gmail with an App Password) to send transactional emails like signup verification.
+            Configure an SMTP server (e.g. Gmail with an App Password) to send transactional emails
+            like signup verification.
           </p>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label className="font-medium" htmlFor="smtp_email">SMTP Email</Label>
-              <Input
-                id="smtp_email"
-                type="email"
-                value={smtp.smtp_email}
-                onChange={(e) => setSmtp({ ...smtp, smtp_email: e.target.value })}
-                placeholder="you@gmail.com"
-                className="mt-2"
-                autoComplete="off"
-              />
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSaveSmtp();
+            }}
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <Label className="font-medium" htmlFor="smtp_email">
+                  SMTP Email
+                </Label>
+                <Input
+                  id="smtp_email"
+                  type="email"
+                  value={smtp.smtp_email}
+                  onChange={(e) => setSmtp({ ...smtp, smtp_email: e.target.value })}
+                  placeholder="you@gmail.com"
+                  className="mt-2"
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <Label className="font-medium" htmlFor="smtp_password">
+                  SMTP Password (App Password)
+                </Label>
+                <Input
+                  id="smtp_password"
+                  type="password"
+                  value={smtp.smtp_password}
+                  onChange={(e) => setSmtp({ ...smtp, smtp_password: e.target.value })}
+                  placeholder="••••••••••••"
+                  className="mt-2"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <Label className="font-medium" htmlFor="smtp_host">
+                  SMTP Host
+                </Label>
+                <Input
+                  id="smtp_host"
+                  value={smtp.smtp_host}
+                  onChange={(e) => setSmtp({ ...smtp, smtp_host: e.target.value })}
+                  className="mt-2"
+                />
+              </div>
+              <div>
+                <Label className="font-medium" htmlFor="smtp_port">
+                  SMTP Port
+                </Label>
+                <Input
+                  id="smtp_port"
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={smtp.smtp_port}
+                  onChange={(e) => setSmtp({ ...smtp, smtp_port: e.target.value })}
+                  className="mt-2"
+                />
+              </div>
             </div>
-            <div>
-              <Label className="font-medium" htmlFor="smtp_password">SMTP Password (App Password)</Label>
-              <Input
-                id="smtp_password"
-                type="password"
-                value={smtp.smtp_password}
-                onChange={(e) => setSmtp({ ...smtp, smtp_password: e.target.value })}
-                placeholder="••••••••••••"
-                className="mt-2"
-                autoComplete="new-password"
-              />
+            <div className="mt-6 flex flex-wrap items-end gap-3">
+              <Button
+                type="submit"
+                disabled={savingSmtp}
+                className="bg-gradient-primary text-primary-foreground gap-2"
+              >
+                {savingSmtp ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Save Configuration
+              </Button>
             </div>
-            <div>
-              <Label className="font-medium" htmlFor="smtp_host">SMTP Host</Label>
-              <Input
-                id="smtp_host"
-                value={smtp.smtp_host}
-                onChange={(e) => setSmtp({ ...smtp, smtp_host: e.target.value })}
-                className="mt-2"
-              />
-            </div>
-            <div>
-              <Label className="font-medium" htmlFor="smtp_port">SMTP Port</Label>
-              <Input
-                id="smtp_port"
-                type="number"
-                min={1}
-                max={65535}
-                value={smtp.smtp_port}
-                onChange={(e) => setSmtp({ ...smtp, smtp_port: e.target.value })}
-                className="mt-2"
-              />
-            </div>
-          </div>
+          </form>
 
-          <div className="mt-6 flex flex-wrap items-end gap-3">
-            <Button
-              onClick={onSaveSmtp}
-              disabled={savingSmtp}
-              className="bg-gradient-primary text-primary-foreground gap-2"
-            >
-              {savingSmtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save Configuration
-            </Button>
-
+          <form
+            className="mt-6 flex flex-wrap items-end gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSendTest();
+            }}
+          >
             <div className="flex-1 min-w-[220px]">
-              <Label className="font-medium" htmlFor="test_to">Send Test Email to</Label>
+              <Label className="font-medium" htmlFor="test_to">
+                Send Test Email to
+              </Label>
               <Input
                 id="test_to"
                 type="email"
@@ -272,21 +334,93 @@ export default function Settings() {
                 className="mt-2"
               />
             </div>
-            <Button onClick={onSendTest} disabled={sendingTest} variant="outline" className="gap-2">
-              {sendingTest ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            <Button type="submit" disabled={sendingTest} variant="outline" className="gap-2">
+              {sendingTest ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
               Send Test Email
             </Button>
-          </div>
+          </form>
 
           <p className="text-xs text-muted-foreground mt-4">
             <strong>Gmail users:</strong> Enable{" "}
-            <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" className="text-primary underline">2-Step Verification</a>
+            <a
+              href="https://myaccount.google.com/security"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline"
+            >
+              2-Step Verification
+            </a>
             , then create an{" "}
-            <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-primary underline">App Password</a>
-            {" "}(16 chars) and paste it above — your regular password won't work.
+            <a
+              href="https://myaccount.google.com/apppasswords"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline"
+            >
+              App Password
+            </a>{" "}
+            (16 chars) and paste it above — your regular password won't work.
           </p>
         </Card>
       </div>
+
+      {/* Clear All Data */}
+      <Card className="glass rounded-2xl p-6 mt-6 border-destructive/30">
+        <div className="flex items-center gap-2 mb-4">
+          <Trash2 className="h-5 w-5 text-destructive" />
+          <h2 className="font-display text-lg font-semibold text-destructive">Danger Zone</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          This will permanently delete all products, inventory, sales, production entries, raw
+          materials, accessories, stock entries, activity logs, and all other business data. Branches,
+          users, and roles will be preserved.
+        </p>
+        {!clearConfirm ? (
+          <Button
+            variant="destructive"
+            onClick={() => setClearConfirm(true)}
+          >
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Clear All Data
+          </Button>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-destructive">
+              Type <span className="font-mono bg-destructive/10 px-1.5 py-0.5 rounded">DELETE</span> below and click Confirm to proceed.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={clearTyped}
+                onChange={(e) => setClearTyped(e.target.value)}
+                placeholder="Type DELETE to confirm"
+                className="max-w-xs"
+              />
+              <Button
+                variant="destructive"
+                disabled={clearTyped !== "DELETE" || clearAllData.isPending}
+                onClick={handleClearAllData}
+              >
+                {clearAllData.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Confirm
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { setClearConfirm(false); setClearTyped(""); }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
     </AppShell>
   );
 }

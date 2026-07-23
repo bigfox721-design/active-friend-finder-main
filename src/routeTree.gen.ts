@@ -9,21 +9,35 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UserDashboardRouteImport } from './routes/user-dashboard'
 import { Route as TvRouteImport } from './routes/tv'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SalesRouteImport } from './routes/sales'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as RawMaterialsRouteImport } from './routes/raw-materials'
+import { Route as QualityChecksRouteImport } from './routes/quality-checks'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as ProcessesRouteImport } from './routes/processes'
 import { Route as MonthlyTargetRouteImport } from './routes/monthly-target'
-import { Route as ManpowerAnalyticsRouteImport } from './routes/manpower-analytics'
+import { Route as MaterialTransferRouteImport } from './routes/material-transfer'
+import { Route as ManagerOverrideRouteImport } from './routes/manager-override'
+import { Route as ManagerDashboardRouteImport } from './routes/manager-dashboard'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DailyOverviewRouteImport } from './routes/daily-overview'
 import { Route as BranchesRouteImport } from './routes/branches'
+import { Route as ActivityStatusRouteImport } from './routes/activity-status'
+import { Route as AccessoriesRouteImport } from './routes/accessories'
 import { Route as IndexRouteImport } from './routes/index'
 
+const UserDashboardRoute = UserDashboardRouteImport.update({
+  id: '/user-dashboard',
+  path: '/user-dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TvRoute = TvRouteImport.update({
   id: '/tv',
   path: '/tv',
@@ -34,9 +48,24 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SalesRoute = SalesRouteImport.update({
+  id: '/sales',
+  path: '/sales',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RawMaterialsRoute = RawMaterialsRouteImport.update({
+  id: '/raw-materials',
+  path: '/raw-materials',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QualityChecksRoute = QualityChecksRouteImport.update({
+  id: '/quality-checks',
+  path: '/quality-checks',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -59,14 +88,29 @@ const MonthlyTargetRoute = MonthlyTargetRouteImport.update({
   path: '/monthly-target',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ManpowerAnalyticsRoute = ManpowerAnalyticsRouteImport.update({
-  id: '/manpower-analytics',
-  path: '/manpower-analytics',
+const MaterialTransferRoute = MaterialTransferRouteImport.update({
+  id: '/material-transfer',
+  path: '/material-transfer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ManagerOverrideRoute = ManagerOverrideRouteImport.update({
+  id: '/manager-override',
+  path: '/manager-override',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ManagerDashboardRoute = ManagerDashboardRouteImport.update({
+  id: '/manager-dashboard',
+  path: '/manager-dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InventoryRoute = InventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoryRoute = HistoryRouteImport.update({
@@ -89,6 +133,16 @@ const BranchesRoute = BranchesRouteImport.update({
   path: '/branches',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ActivityStatusRoute = ActivityStatusRouteImport.update({
+  id: '/activity-status',
+  path: '/activity-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccessoriesRoute = AccessoriesRouteImport.update({
+  id: '/accessories',
+  path: '/accessories',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -97,123 +151,193 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/accessories': typeof AccessoriesRoute
+  '/activity-status': typeof ActivityStatusRoute
   '/branches': typeof BranchesRoute
   '/daily-overview': typeof DailyOverviewRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/history': typeof HistoryRoute
+  '/inventory': typeof InventoryRoute
   '/login': typeof LoginRoute
-  '/manpower-analytics': typeof ManpowerAnalyticsRoute
+  '/manager-dashboard': typeof ManagerDashboardRoute
+  '/manager-override': typeof ManagerOverrideRoute
+  '/material-transfer': typeof MaterialTransferRoute
   '/monthly-target': typeof MonthlyTargetRoute
   '/processes': typeof ProcessesRoute
   '/products': typeof ProductsRoute
   '/profile': typeof ProfileRoute
+  '/quality-checks': typeof QualityChecksRoute
+  '/raw-materials': typeof RawMaterialsRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sales': typeof SalesRoute
   '/settings': typeof SettingsRoute
   '/tv': typeof TvRoute
+  '/user-dashboard': typeof UserDashboardRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/accessories': typeof AccessoriesRoute
+  '/activity-status': typeof ActivityStatusRoute
   '/branches': typeof BranchesRoute
   '/daily-overview': typeof DailyOverviewRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/history': typeof HistoryRoute
+  '/inventory': typeof InventoryRoute
   '/login': typeof LoginRoute
-  '/manpower-analytics': typeof ManpowerAnalyticsRoute
+  '/manager-dashboard': typeof ManagerDashboardRoute
+  '/manager-override': typeof ManagerOverrideRoute
+  '/material-transfer': typeof MaterialTransferRoute
   '/monthly-target': typeof MonthlyTargetRoute
   '/processes': typeof ProcessesRoute
   '/products': typeof ProductsRoute
   '/profile': typeof ProfileRoute
+  '/quality-checks': typeof QualityChecksRoute
+  '/raw-materials': typeof RawMaterialsRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sales': typeof SalesRoute
   '/settings': typeof SettingsRoute
   '/tv': typeof TvRoute
+  '/user-dashboard': typeof UserDashboardRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/accessories': typeof AccessoriesRoute
+  '/activity-status': typeof ActivityStatusRoute
   '/branches': typeof BranchesRoute
   '/daily-overview': typeof DailyOverviewRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/history': typeof HistoryRoute
+  '/inventory': typeof InventoryRoute
   '/login': typeof LoginRoute
-  '/manpower-analytics': typeof ManpowerAnalyticsRoute
+  '/manager-dashboard': typeof ManagerDashboardRoute
+  '/manager-override': typeof ManagerOverrideRoute
+  '/material-transfer': typeof MaterialTransferRoute
   '/monthly-target': typeof MonthlyTargetRoute
   '/processes': typeof ProcessesRoute
   '/products': typeof ProductsRoute
   '/profile': typeof ProfileRoute
+  '/quality-checks': typeof QualityChecksRoute
+  '/raw-materials': typeof RawMaterialsRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sales': typeof SalesRoute
   '/settings': typeof SettingsRoute
   '/tv': typeof TvRoute
+  '/user-dashboard': typeof UserDashboardRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/accessories'
+    | '/activity-status'
     | '/branches'
     | '/daily-overview'
     | '/forgot-password'
     | '/history'
+    | '/inventory'
     | '/login'
-    | '/manpower-analytics'
+    | '/manager-dashboard'
+    | '/manager-override'
+    | '/material-transfer'
     | '/monthly-target'
     | '/processes'
     | '/products'
     | '/profile'
+    | '/quality-checks'
+    | '/raw-materials'
     | '/reset-password'
+    | '/sales'
     | '/settings'
     | '/tv'
+    | '/user-dashboard'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/accessories'
+    | '/activity-status'
     | '/branches'
     | '/daily-overview'
     | '/forgot-password'
     | '/history'
+    | '/inventory'
     | '/login'
-    | '/manpower-analytics'
+    | '/manager-dashboard'
+    | '/manager-override'
+    | '/material-transfer'
     | '/monthly-target'
     | '/processes'
     | '/products'
     | '/profile'
+    | '/quality-checks'
+    | '/raw-materials'
     | '/reset-password'
+    | '/sales'
     | '/settings'
     | '/tv'
+    | '/user-dashboard'
   id:
     | '__root__'
     | '/'
+    | '/accessories'
+    | '/activity-status'
     | '/branches'
     | '/daily-overview'
     | '/forgot-password'
     | '/history'
+    | '/inventory'
     | '/login'
-    | '/manpower-analytics'
+    | '/manager-dashboard'
+    | '/manager-override'
+    | '/material-transfer'
     | '/monthly-target'
     | '/processes'
     | '/products'
     | '/profile'
+    | '/quality-checks'
+    | '/raw-materials'
     | '/reset-password'
+    | '/sales'
     | '/settings'
     | '/tv'
+    | '/user-dashboard'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccessoriesRoute: typeof AccessoriesRoute
+  ActivityStatusRoute: typeof ActivityStatusRoute
   BranchesRoute: typeof BranchesRoute
   DailyOverviewRoute: typeof DailyOverviewRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   HistoryRoute: typeof HistoryRoute
+  InventoryRoute: typeof InventoryRoute
   LoginRoute: typeof LoginRoute
-  ManpowerAnalyticsRoute: typeof ManpowerAnalyticsRoute
+  ManagerDashboardRoute: typeof ManagerDashboardRoute
+  ManagerOverrideRoute: typeof ManagerOverrideRoute
+  MaterialTransferRoute: typeof MaterialTransferRoute
   MonthlyTargetRoute: typeof MonthlyTargetRoute
   ProcessesRoute: typeof ProcessesRoute
   ProductsRoute: typeof ProductsRoute
   ProfileRoute: typeof ProfileRoute
+  QualityChecksRoute: typeof QualityChecksRoute
+  RawMaterialsRoute: typeof RawMaterialsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SalesRoute: typeof SalesRoute
   SettingsRoute: typeof SettingsRoute
   TvRoute: typeof TvRoute
+  UserDashboardRoute: typeof UserDashboardRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/user-dashboard': {
+      id: '/user-dashboard'
+      path: '/user-dashboard'
+      fullPath: '/user-dashboard'
+      preLoaderRoute: typeof UserDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tv': {
       id: '/tv'
       path: '/tv'
@@ -228,11 +352,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sales': {
+      id: '/sales'
+      path: '/sales'
+      fullPath: '/sales'
+      preLoaderRoute: typeof SalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/raw-materials': {
+      id: '/raw-materials'
+      path: '/raw-materials'
+      fullPath: '/raw-materials'
+      preLoaderRoute: typeof RawMaterialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quality-checks': {
+      id: '/quality-checks'
+      path: '/quality-checks'
+      fullPath: '/quality-checks'
+      preLoaderRoute: typeof QualityChecksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -263,11 +408,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MonthlyTargetRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/manpower-analytics': {
-      id: '/manpower-analytics'
-      path: '/manpower-analytics'
-      fullPath: '/manpower-analytics'
-      preLoaderRoute: typeof ManpowerAnalyticsRouteImport
+    '/material-transfer': {
+      id: '/material-transfer'
+      path: '/material-transfer'
+      fullPath: '/material-transfer'
+      preLoaderRoute: typeof MaterialTransferRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/manager-override': {
+      id: '/manager-override'
+      path: '/manager-override'
+      fullPath: '/manager-override'
+      preLoaderRoute: typeof ManagerOverrideRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/manager-dashboard': {
+      id: '/manager-dashboard'
+      path: '/manager-dashboard'
+      fullPath: '/manager-dashboard'
+      preLoaderRoute: typeof ManagerDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -275,6 +434,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inventory': {
+      id: '/inventory'
+      path: '/inventory'
+      fullPath: '/inventory'
+      preLoaderRoute: typeof InventoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history': {
@@ -305,6 +471,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BranchesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/activity-status': {
+      id: '/activity-status'
+      path: '/activity-status'
+      fullPath: '/activity-status'
+      preLoaderRoute: typeof ActivityStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/accessories': {
+      id: '/accessories'
+      path: '/accessories'
+      fullPath: '/accessories'
+      preLoaderRoute: typeof AccessoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -317,19 +497,28 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccessoriesRoute: AccessoriesRoute,
+  ActivityStatusRoute: ActivityStatusRoute,
   BranchesRoute: BranchesRoute,
   DailyOverviewRoute: DailyOverviewRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   HistoryRoute: HistoryRoute,
+  InventoryRoute: InventoryRoute,
   LoginRoute: LoginRoute,
-  ManpowerAnalyticsRoute: ManpowerAnalyticsRoute,
+  ManagerDashboardRoute: ManagerDashboardRoute,
+  ManagerOverrideRoute: ManagerOverrideRoute,
+  MaterialTransferRoute: MaterialTransferRoute,
   MonthlyTargetRoute: MonthlyTargetRoute,
   ProcessesRoute: ProcessesRoute,
   ProductsRoute: ProductsRoute,
   ProfileRoute: ProfileRoute,
+  QualityChecksRoute: QualityChecksRoute,
+  RawMaterialsRoute: RawMaterialsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SalesRoute: SalesRoute,
   SettingsRoute: SettingsRoute,
   TvRoute: TvRoute,
+  UserDashboardRoute: UserDashboardRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,22 +1,41 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { ChartSwitcher } from "@/components/ChartSwitcher";
 import { ExportButtons } from "@/components/ExportButtons";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card } from "@/components/ui/card";
-import { useEntries } from "@/hooks/useProduction";
+import { useEntries, useProducts } from "@/hooks/useProduction";
+import { supabase } from "@/integrations/supabase/client";
 import { fmtNum, todayISO } from "@/lib/format";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
 } from "recharts";
 
 type Range = "daily" | "weekly" | "monthly";
 
 const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -58,7 +77,27 @@ export default function History() {
   const [range, setRange] = useState<Range>("daily");
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth()); // 0-11
+  const [month, setMonth] = useState(now.getMonth());
+  const [filterProductId, setFilterProductId] = useState("");
+  const [filterSubProductId, setFilterSubProductId] = useState("");
+
+  const { data: products = [] } = useProducts();
+  const { data: subProducts = [] } = useQuery({
+    queryKey: ["sub_products"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("sub_products")
+        .select("*")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as { id: string; product_id: string; name: string }[];
+    },
+  });
+
+  const filteredSubProducts = useMemo(
+    () => (filterProductId ? subProducts.filter((s) => s.product_id === filterProductId) : subProducts),
+    [subProducts, filterProductId],
+  );
 
   // Fetch range based on selection
   const { from, to } = useMemo(() => {
@@ -69,16 +108,28 @@ export default function History() {
     return { from: iso(year, month, 1), to: iso(year, month, last) };
   }, [range, year, month]);
 
-  const { data: entries = [], isLoading } = useEntries({ from, to });
+  const { data: rawEntries = [], isLoading } = useEntries({ from, to });
 
-  // Aggregate map: date(ISO) -> { target, completed, reasons }
+  // Filter entries by product / sub-product
+  const entries = useMemo(() => {
+    let filtered = rawEntries;
+    if (filterSubProductId) {
+      filtered = filtered.filter((e) => e.product_id === filterSubProductId);
+    } else if (filterProductId) {
+      const subIds = new Set(
+        subProducts.filter((s) => s.product_id === filterProductId).map((s) => s.id),
+      );
+      filtered = filtered.filter((e) => e.product_id === filterProductId || subIds.has(e.product_id));
+    }
+    return filtered;
+  }, [rawEntries, filterProductId, filterSubProductId, subProducts]);
+
   const byDate = useMemo(() => {
-    const map = new Map<string, { target: number; completed: number; reasons: string[] }>();
+    const map = new Map<string, { target: number; completed: number }>();
     for (const e of entries) {
-      const cur = map.get(e.entry_date) ?? { target: 0, completed: 0, reasons: [] };
+      const cur = map.get(e.entry_date) ?? { target: 0, completed: 0 };
       cur.target += e.target_qty;
       cur.completed += e.completed_qty;
-      if (e.delay_reason) cur.reasons.push(e.delay_reason);
       map.set(e.entry_date, cur);
     }
     return map;
@@ -112,15 +163,25 @@ export default function History() {
           <h1 className="font-display text-3xl font-bold tracking-tight">
             Production <span className="text-gradient">History</span>
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">Filter, analyze, and export past performance.</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Filter, analyze, and export past performance.
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex gap-1 p-1 rounded-lg bg-secondary/60">
             {(["daily", "weekly", "monthly"] as Range[]).map((r) => (
-              <button key={r} onClick={() => setRange(r)} className={cn(
-                "px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-smooth",
-                range === r ? "bg-primary text-primary-foreground shadow-glow-primary" : "text-muted-foreground hover:text-foreground"
-              )}>{r}</button>
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-smooth",
+                  range === r
+                    ? "bg-primary text-primary-foreground shadow-glow-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {r}
+              </button>
             ))}
           </div>
           {range !== "monthly" && (
@@ -129,7 +190,11 @@ export default function History() {
               onChange={(e) => setMonth(Number(e.target.value))}
               className="h-9 px-2 rounded-md bg-secondary/60 border border-border text-xs"
             >
-              {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+              {MONTHS.map((m, i) => (
+                <option key={m} value={i}>
+                  {m}
+                </option>
+              ))}
             </select>
           )}
           <select
@@ -137,8 +202,34 @@ export default function History() {
             onChange={(e) => setYear(Number(e.target.value))}
             className="h-9 px-2 rounded-md bg-secondary/60 border border-border text-xs"
           >
-            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
           </select>
+          <select
+            value={filterProductId}
+            onChange={(e) => { setFilterProductId(e.target.value); setFilterSubProductId(""); }}
+            className="h-9 px-2 rounded-md bg-secondary/60 border border-border text-xs w-32"
+          >
+            <option value="">All products</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          {filteredSubProducts.length > 0 && (
+            <select
+              value={filterSubProductId}
+              onChange={(e) => setFilterSubProductId(e.target.value)}
+              className="h-9 px-2 rounded-md bg-secondary/60 border border-border text-xs w-32"
+            >
+              <option value="">All sub</option>
+              {filteredSubProducts.map((sp) => (
+                <option key={sp.id} value={sp.id}>{sp.name}</option>
+              ))}
+            </select>
+          )}
           <ExportButtons entries={entries} />
         </div>
       </div>
@@ -149,27 +240,49 @@ export default function History() {
         ) : (
           <Card className="glass rounded-2xl p-5">
             <h3 className="font-display text-lg font-semibold mb-4">
-              {range === "weekly" ? `Weekly comparison · ${MONTHS[month]} ${year}` : `Monthly comparison · ${year}`}
+              {range === "weekly"
+                ? `Weekly comparison · ${MONTHS[month]} ${year}`
+                : `Monthly comparison · ${year}`}
             </h3>
             <div className="h-72 w-full">
               <ResponsiveContainer>
-                <BarChart data={
-                  range === "weekly"
-                    ? weeks.map((w) => {
-                        const t = w.days.reduce((acc, d) => {
-                          if (!d.date) return acc;
-                          const v = byDate.get(d.date);
-                          if (v) { acc.target += v.target; acc.completed += v.completed; }
-                          return acc;
-                        }, { target: 0, completed: 0 });
-                        return { label: w.label, target: t.target, completed: t.completed };
-                      })
-                    : MONTHS.map((m, i) => ({ label: m.slice(0, 3), target: byMonth[i].target, completed: byMonth[i].completed }))
-                }>
+                <BarChart
+                  data={
+                    range === "weekly"
+                      ? weeks.map((w) => {
+                          const t = w.days.reduce(
+                            (acc, d) => {
+                              if (!d.date) return acc;
+                              const v = byDate.get(d.date);
+                              if (v) {
+                                acc.target += v.target;
+                                acc.completed += v.completed;
+                              }
+                              return acc;
+                            },
+                            { target: 0, completed: 0 },
+                          );
+                          return { label: w.label, target: t.target, completed: t.completed };
+                        })
+                      : MONTHS.map((m, i) => ({
+                          label: m.slice(0, 3),
+                          target: byMonth[i].target,
+                          completed: byMonth[i].completed,
+                        }))
+                  }
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12, color: "hsl(var(--popover-foreground))" }} />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 12,
+                      fontSize: 12,
+                      color: "hsl(var(--popover-foreground))",
+                    }}
+                  />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Bar dataKey="target" fill="hsl(var(--muted-foreground))" radius={[6, 6, 0, 0]} />
                   <Bar dataKey="completed" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
@@ -191,7 +304,9 @@ export default function History() {
         </div>
 
         {isLoading ? (
-          <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+          <div className="py-16 flex justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
         ) : (
           <div className="overflow-x-auto">
             {/* DAILY: Days 1..N of selected month */}
@@ -204,34 +319,33 @@ export default function History() {
                     <th className="px-4 py-3 text-right">Target</th>
                     <th className="px-4 py-3 text-right">Completed</th>
                     <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Reason</th>
                   </tr>
                 </thead>
                 <tbody>
-                    {Array.from({ length: totalDays }, (_, i) => i + 1).map((d) => {
-                        const date = iso(year, month, d);
-                        const v = byDate.get(date) ?? { target: 0, completed: 0, reasons: [] };
-                        const reasonText = v.reasons.length > 0 ? v.reasons.join("; ") : null;
-                        return (
-                          <tr key={d} className="border-t border-border hover:bg-secondary/30">
-                            <td className="px-4 py-3 tabular-nums font-semibold">{d}</td>
-                            <td className="px-4 py-3 tabular-nums text-muted-foreground">
-                              {new Date(year, month, d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums">{fmtNum(v.target)}</td>
-                            <td className="px-4 py-3 text-right tabular-nums font-semibold">{fmtNum(v.completed)}</td>
-                            <td className="px-4 py-3"><StatusBadge completed={v.completed} target={v.target} /></td>
-                            <td className="px-4 py-3 text-sm max-w-[180px] truncate" title={reasonText ?? ""}>
-                              {reasonText ? (
-                                <span className="text-muted-foreground cursor-default">{reasonText}</span>
-                              ) : (
-                                <span className="text-muted-foreground/50">—</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
+                  {Array.from({ length: totalDays }, (_, i) => i + 1).map((d) => {
+                    const date = iso(year, month, d);
+                    const v = byDate.get(date) ?? { target: 0, completed: 0 };
+                    return (
+                      <tr key={d} className="border-t border-border hover:bg-secondary/30">
+                        <td className="px-4 py-3 tabular-nums font-semibold">{d}</td>
+                        <td className="px-4 py-3 tabular-nums text-muted-foreground">
+                          {new Date(year, month, d).toLocaleDateString(undefined, {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">{fmtNum(v.target)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums font-semibold">
+                          {fmtNum(v.completed)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge completed={v.completed} target={v.target} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
               </table>
             )}
 
@@ -243,7 +357,10 @@ export default function History() {
                     (acc, d) => {
                       if (!d.date) return acc;
                       const v = byDate.get(d.date);
-                      if (v) { acc.target += v.target; acc.completed += v.completed; }
+                      if (v) {
+                        acc.target += v.target;
+                        acc.completed += v.completed;
+                      }
                       return acc;
                     },
                     { target: 0, completed: 0 },
@@ -253,9 +370,15 @@ export default function History() {
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-display font-semibold text-sm">{w.label}</h4>
                         <div className="text-xs text-muted-foreground">
-                          Target: <span className="text-foreground font-semibold tabular-nums">{fmtNum(weekTotals.target)}</span>
+                          Target:{" "}
+                          <span className="text-foreground font-semibold tabular-nums">
+                            {fmtNum(weekTotals.target)}
+                          </span>
                           <span className="mx-2">·</span>
-                          Completed: <span className="text-foreground font-semibold tabular-nums">{fmtNum(weekTotals.completed)}</span>
+                          Completed:{" "}
+                          <span className="text-foreground font-semibold tabular-nums">
+                            {fmtNum(weekTotals.completed)}
+                          </span>
                         </div>
                       </div>
                       <table className="w-full text-sm">
@@ -266,7 +389,6 @@ export default function History() {
                             <th className="px-3 py-2 text-right">Target</th>
                             <th className="px-3 py-2 text-right">Completed</th>
                             <th className="px-3 py-2 text-left">Status</th>
-                            <th className="px-3 py-2 text-left">Reason</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -279,27 +401,27 @@ export default function History() {
                                   <td className="px-3 py-2 text-right">—</td>
                                   <td className="px-3 py-2 text-right">—</td>
                                   <td className="px-3 py-2 text-muted-foreground">—</td>
-                                  <td className="px-3 py-2 text-muted-foreground">—</td>
                                 </tr>
                               );
                             }
-                            const v = byDate.get(d.date) ?? { target: 0, completed: 0, reasons: [] };
-                            const reasonText = v.reasons.length > 0 ? v.reasons.join("; ") : null;
+                            const v = byDate.get(d.date) ?? {
+                              target: 0,
+                              completed: 0,
+                            };
                             return (
                               <tr key={i} className="border-t border-border hover:bg-secondary/30">
                                 <td className="px-3 py-2 font-medium">{d.weekday}</td>
                                 <td className="px-3 py-2 tabular-nums text-muted-foreground">
                                   {MONTHS[month].slice(0, 3)} {d.day}
                                 </td>
-                                <td className="px-3 py-2 text-right tabular-nums">{fmtNum(v.target)}</td>
-                                <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtNum(v.completed)}</td>
-                                <td className="px-3 py-2"><StatusBadge completed={v.completed} target={v.target} /></td>
-                                <td className="px-3 py-2 text-sm max-w-[150px] truncate" title={reasonText ?? ""}>
-                                  {reasonText ? (
-                                    <span className="text-muted-foreground cursor-default">{reasonText}</span>
-                                  ) : (
-                                    <span className="text-muted-foreground/50">—</span>
-                                  )}
+                                <td className="px-3 py-2 text-right tabular-nums">
+                                  {fmtNum(v.target)}
+                                </td>
+                                <td className="px-3 py-2 text-right tabular-nums font-semibold">
+                                  {fmtNum(v.completed)}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <StatusBadge completed={v.completed} target={v.target} />
                                 </td>
                               </tr>
                             );
@@ -330,8 +452,12 @@ export default function History() {
                       <tr key={m} className="border-t border-border hover:bg-secondary/30">
                         <td className="px-4 py-3 font-medium">{m}</td>
                         <td className="px-4 py-3 text-right tabular-nums">{fmtNum(v.target)}</td>
-                        <td className="px-4 py-3 text-right tabular-nums font-semibold">{fmtNum(v.completed)}</td>
-                        <td className="px-4 py-3"><StatusBadge completed={v.completed} target={v.target} /></td>
+                        <td className="px-4 py-3 text-right tabular-nums font-semibold">
+                          {fmtNum(v.completed)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge completed={v.completed} target={v.target} />
+                        </td>
                       </tr>
                     );
                   })}

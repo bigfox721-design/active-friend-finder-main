@@ -10,10 +10,7 @@ import { getProductAndSubProduct } from "@/lib/product-mapping";
 
 type SubProductLite = { id: string; product_id: string; name: string; code: string | null };
 
-const resolveNames = (
-  e: EntryWithProduct,
-  subProducts: SubProductLite[],
-) => {
+const resolveNames = (e: EntryWithProduct, subProducts: SubProductLite[]) => {
   const sub = subProducts.find((s) => s.id === e.product_id);
   if (sub) {
     return {
@@ -43,7 +40,7 @@ export const ExportButtons = ({
   const buildRows = () =>
     entries.map((e) => {
       const r = resolveNames(e, subProducts);
-      const parentName = r.parentId ? productsById[r.parentId]?.name ?? "—" : r.productName;
+      const parentName = r.parentId ? (productsById[r.parentId]?.name ?? "—") : r.productName;
       const { product, subProduct } = getProductAndSubProduct(parentName, r.subName || null);
       const mp = (e as any).manpower ?? 0;
       const perWorker = mp > 0 ? Math.round((e.completed_qty / mp) * 10) / 10 : 0;
@@ -72,7 +69,9 @@ export const ExportButtons = ({
           const day = String(dt.getDate()).padStart(2, "0");
           const mon = dt.toLocaleString("en-US", { month: "short" });
           return `${day}-${mon}-${dt.getFullYear()}`;
-        } catch { return "—"; }
+        } catch {
+          return "—";
+        }
       };
       const pageWidth = doc.internal.pageSize.getWidth();
       doc.setFont("helvetica", "bold");
@@ -82,7 +81,9 @@ export const ExportButtons = ({
       doc.setFontSize(12);
       doc.text("Production Report", pageWidth / 2, 22, { align: "center" });
       doc.setFontSize(10);
-      doc.text(`Date: ${fmtPdfDate(new Date().toISOString().slice(0, 10))}`, pageWidth / 2, 28, { align: "center" });
+      doc.text(`Date: ${fmtPdfDate(new Date().toISOString().slice(0, 10))}`, pageWidth / 2, 28, {
+        align: "center",
+      });
       autoTable(doc, {
         startY: 34,
         head: [["Date", "Product", "Sub Product", "Target", "Completed", "Manpower"]],
@@ -120,12 +121,7 @@ export const ExportButtons = ({
       const dd = String(today.getDate()).padStart(2, "0");
       const mm = today.toLocaleString("en-US", { month: "short" });
       const dateStr = `${dd}-${mm}-${today.getFullYear()}`;
-      const headerAoa = [
-        ["BIGFOX PRODUCTION"],
-        ["Production Report"],
-        [`Date: ${dateStr}`],
-        [],
-      ];
+      const headerAoa = [["BIGFOX PRODUCTION"], ["Production Report"], [`Date: ${dateStr}`], []];
       const worksheet = XLSX.utils.aoa_to_sheet(headerAoa);
       XLSX.utils.sheet_add_json(worksheet, data, { origin: "A5" });
       const colCount = 8;
@@ -155,8 +151,14 @@ export const ExportButtons = ({
 
   return (
     <div className="flex gap-2">
-      <Button variant="outline" size="sm" onClick={exportPdf}><Download className="h-3.5 w-3.5 mr-1.5" />PDF</Button>
-      <Button variant="outline" size="sm" onClick={exportXlsx}><FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />Excel</Button>
+      <Button variant="outline" size="sm" onClick={exportPdf}>
+        <Download className="h-3.5 w-3.5 mr-1.5" />
+        PDF
+      </Button>
+      <Button variant="outline" size="sm" onClick={exportXlsx}>
+        <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
+        Excel
+      </Button>
     </div>
   );
 };

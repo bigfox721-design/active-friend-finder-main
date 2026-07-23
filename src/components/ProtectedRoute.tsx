@@ -1,28 +1,67 @@
-import { useEffect, type ReactElement } from "react";
-import { useNavigate, useLocation } from "@/lib/router-shim";
+import { useEffect, useRef, type ReactElement } from "react";
+import { useNavigate } from "@/lib/router-shim";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useRole } from "@/hooks/useRole";
 import { Loader2 } from "lucide-react";
 
-export const ProtectedRoute = ({ children }: { children: ReactElement }) => {
-  const { user, loading } = useAuth();
+type Props = {
+  children: ReactElement;
+  requiredRole?: "manager" | "user";
+};
+
+export const ProtectedRoute = ({ children, requiredRole }: Props) => {
+  const { user, loading: authLoading } = useAuth();
+  const { role, loading: roleLoading } = useRole();
   const navigate = useNavigate();
-  const location = useLocation();
+  const redirectedRef = useRef(false);
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/login", { replace: true, state: { from: location } });
-    }
-    // Intentionally exclude `navigate` and `location` (new refs each render)
-    // to avoid an infinite update loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loading]);
+    if (authLoading) return;
 
-  if (loading || !user) {
+    if (!user) {
+      supabase.auth.getSession().then(({ data }) => {
+        if (!data.session && !redirectedRef.current) {
+          redirectedRef.current = true;
+          navigate("/login", { replace: true });
+        }
+      });
+      return;
+    }
+
+    if (requiredRole && !roleLoading && role && role.role !== requiredRole) {
+      redirectedRef.current = true;
+      navigate(role.role === "manager" ? "/manager-dashboard" : "/user-dashboard", { replace: true });
+    }
+  }, [user, authLoading, role, roleLoading, requiredRole, navigate]);
+
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (requiredRole && roleLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (requiredRole && role && role.role !== requiredRole) {
+    return null;
+  }
+
   return children;
 };

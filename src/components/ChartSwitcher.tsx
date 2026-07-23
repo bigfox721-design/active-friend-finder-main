@@ -1,7 +1,19 @@
 import { useMemo, useState } from "react";
 import {
-  PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, ComposedChart,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  ComposedChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
 } from "recharts";
 import { Card } from "@/components/ui/card";
 import { PieChart as PieIcon, BarChart3, LineChart as LineIcon, Users } from "lucide-react";
@@ -36,8 +48,7 @@ const safeNum = (n: unknown) => {
   return Number.isFinite(v) ? v : 0;
 };
 
-const pctOf = (v: number, total: number) =>
-  total > 0 ? Math.round((v / total) * 1000) / 10 : 0;
+const pctOf = (v: number, total: number) => (total > 0 ? Math.round((v / total) * 1000) / 10 : 0);
 
 export const ChartSwitcher = ({
   entries,
@@ -51,9 +62,17 @@ export const ChartSwitcher = ({
   const [kind, setKind] = useState<ChartKind>(defaultKind);
 
   const byDate = useMemo(() => {
-    const m = new Map<string, { date: string; target: number; completed: number; manpower: number }>();
+    const m = new Map<
+      string,
+      { date: string; target: number; completed: number; manpower: number }
+    >();
     [...entries].reverse().forEach((e) => {
-      const cur = m.get(e.entry_date) || { date: e.entry_date, target: 0, completed: 0, manpower: 0 };
+      const cur = m.get(e.entry_date) || {
+        date: e.entry_date,
+        target: 0,
+        completed: 0,
+        manpower: 0,
+      };
       cur.target += safeNum(e.target_qty);
       cur.completed += safeNum(e.completed_qty);
       cur.manpower += safeNum(e.manpower);
@@ -74,10 +93,7 @@ export const ChartSwitcher = ({
     return Array.from(m.values()).sort((a, b) => b.completed - a.completed);
   }, [entries]);
 
-  const completedTotal = useMemo(
-    () => byProduct.reduce((s, p) => s + p.completed, 0),
-    [byProduct],
-  );
+  const completedTotal = useMemo(() => byProduct.reduce((s, p) => s + p.completed, 0), [byProduct]);
 
   const pieData = useMemo(
     () =>
@@ -107,7 +123,9 @@ export const ChartSwitcher = ({
     return (
       <div style={tooltipStyle}>
         <div className="font-semibold">{p.name}</div>
-        <div>{fmtNum(p.value)} ({p.percentage}%)</div>
+        <div>
+          {fmtNum(p.value)} ({p.percentage}%)
+        </div>
       </div>
     );
   };
@@ -120,7 +138,9 @@ export const ChartSwitcher = ({
         {payload.map((row: any) => (
           <div key={row.dataKey} className="flex items-center gap-2">
             <span className="inline-block h-2 w-2 rounded-full" style={{ background: row.color }} />
-            <span>{row.name}: <strong>{fmtNum(safeNum(row.value))}</strong></span>
+            <span>
+              {row.name}: <strong>{fmtNum(safeNum(row.value))}</strong>
+            </span>
           </div>
         ))}
       </div>
@@ -132,10 +152,18 @@ export const ChartSwitcher = ({
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h3 className="font-display text-lg font-semibold">{title ?? "Production overview"}</h3>
         <div className="flex gap-1 p-1 rounded-lg bg-secondary/60 flex-wrap">
-          <Btn active={kind === "pie"} onClick={() => setKind("pie")}><PieIcon className="h-4 w-4" /> Pie</Btn>
-          <Btn active={kind === "bar"} onClick={() => setKind("bar")}><BarChart3 className="h-4 w-4" /> Bar</Btn>
-          <Btn active={kind === "line"} onClick={() => setKind("line")}><LineIcon className="h-4 w-4" /> Line</Btn>
-          <Btn active={kind === "manpower"} onClick={() => setKind("manpower")}><Users className="h-4 w-4" /> Manpower</Btn>
+          <Btn active={kind === "pie"} onClick={() => setKind("pie")}>
+            <PieIcon className="h-4 w-4" /> Pie
+          </Btn>
+          <Btn active={kind === "bar"} onClick={() => setKind("bar")}>
+            <BarChart3 className="h-4 w-4" /> Bar
+          </Btn>
+          <Btn active={kind === "line"} onClick={() => setKind("line")}>
+            <LineIcon className="h-4 w-4" /> Line
+          </Btn>
+          <Btn active={kind === "manpower"} onClick={() => setKind("manpower")}>
+            <Users className="h-4 w-4" /> Manpower
+          </Btn>
         </div>
       </div>
 
@@ -162,7 +190,9 @@ export const ChartSwitcher = ({
                     paddingAngle={pieData.length > 1 ? 3 : 0}
                     isAnimationActive={false}
                   >
-                    {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    {pieData.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
                   </Pie>
                   <Tooltip content={<PieTip />} />
                   <Legend
@@ -181,8 +211,20 @@ export const ChartSwitcher = ({
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} allowDecimals={false} />
                 <Tooltip content={<GenericTip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="target" name="Target" fill="hsl(var(--muted-foreground))" radius={[6, 6, 0, 0]} isAnimationActive={false} />
-                <Bar dataKey="completed" name="Completed" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} isAnimationActive={false} />
+                <Bar
+                  dataKey="target"
+                  name="Target"
+                  fill="hsl(var(--muted-foreground))"
+                  radius={[6, 6, 0, 0]}
+                  isAnimationActive={false}
+                />
+                <Bar
+                  dataKey="completed"
+                  name="Completed"
+                  fill="hsl(var(--primary))"
+                  radius={[6, 6, 0, 0]}
+                  isAnimationActive={false}
+                />
               </BarChart>
             ) : kind === "line" ? (
               <LineChart data={byDate}>
@@ -191,19 +233,62 @@ export const ChartSwitcher = ({
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} allowDecimals={false} />
                 <Tooltip content={<GenericTip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="target" name="Target" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={false} isAnimationActive={false} />
-                <Line type="monotone" dataKey="completed" name="Completed" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 3 }} isAnimationActive={false} />
+                <Line
+                  type="monotone"
+                  dataKey="target"
+                  name="Target"
+                  stroke="hsl(var(--muted-foreground))"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="completed"
+                  name="Completed"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={3}
+                  dot={{ r: 3 }}
+                  isAnimationActive={false}
+                />
               </LineChart>
             ) : (
               <ComposedChart data={byDate}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" fontSize={11} allowDecimals={false} />
-                <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--muted-foreground))" fontSize={11} allowDecimals={false} />
+                <YAxis
+                  yAxisId="left"
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={11}
+                  allowDecimals={false}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={11}
+                  allowDecimals={false}
+                />
                 <Tooltip content={<GenericTip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar yAxisId="left" dataKey="completed" name="Production" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} isAnimationActive={false} />
-                <Line yAxisId="right" type="monotone" dataKey="manpower" name="Manpower" stroke="hsl(25 95% 53%)" strokeWidth={3} dot={{ r: 3 }} isAnimationActive={false} />
+                <Bar
+                  yAxisId="left"
+                  dataKey="completed"
+                  name="Production"
+                  fill="hsl(var(--primary))"
+                  radius={[6, 6, 0, 0]}
+                  isAnimationActive={false}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="manpower"
+                  name="Manpower"
+                  stroke="hsl(25 95% 53%)"
+                  strokeWidth={3}
+                  dot={{ r: 3 }}
+                  isAnimationActive={false}
+                />
               </ComposedChart>
             )}
           </ResponsiveContainer>
@@ -214,8 +299,15 @@ export const ChartSwitcher = ({
 };
 
 const Btn = ({ active, children, onClick }: any) => (
-  <button onClick={onClick} className={cn(
-    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-smooth",
-    active ? "bg-primary text-primary-foreground shadow-glow-primary" : "text-muted-foreground hover:text-foreground"
-  )}>{children}</button>
+  <button
+    onClick={onClick}
+    className={cn(
+      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-smooth",
+      active
+        ? "bg-primary text-primary-foreground shadow-glow-primary"
+        : "text-muted-foreground hover:text-foreground",
+    )}
+  >
+    {children}
+  </button>
 );

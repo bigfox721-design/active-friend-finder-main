@@ -11,7 +11,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { BranchProvider } from "@/hooks/useBranch";
-
+import { RoleProvider } from "@/hooks/useRole";
 
 import appCss from "../styles.css?url";
 
@@ -22,7 +22,10 @@ function NotFoundComponent() {
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <p className="mt-4 text-sm text-muted-foreground">This page doesn't exist.</p>
         <div className="mt-6">
-          <Link to="/" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
             Go home
           </Link>
         </div>
@@ -41,7 +44,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
         <div className="mt-6">
           <button
-            onClick={() => { router.invalidate(); reset(); }}
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             Try again
@@ -95,8 +101,10 @@ function RootComponent() {
       <TooltipProvider>
         <AuthProvider>
           <BranchProvider>
-            <Outlet />
-            <Sonner richColors position="top-right" />
+            <RoleProvider>
+              <Outlet />
+              <Sonner richColors position="top-right" />
+            </RoleProvider>
           </BranchProvider>
         </AuthProvider>
       </TooltipProvider>

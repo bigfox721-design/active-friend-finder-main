@@ -49,8 +49,11 @@ export const sendMissedTargetAlert = createServerFn({ method: "POST" })
     if (!cfg) return { sent: false, reason: "no-smtp" };
 
     const c = cfg as unknown as {
-      smtp_email: string; smtp_password: string; smtp_host: string;
-      smtp_port: number; smtp_secure: boolean;
+      smtp_email: string;
+      smtp_password: string;
+      smtp_host: string;
+      smtp_port: number;
+      smtp_secure: boolean;
     };
 
     // Get today's entries
@@ -86,14 +89,18 @@ export const sendMissedTargetAlert = createServerFn({ method: "POST" })
           <p><strong>${missed.length}</strong> product(s) below today's target.</p>
           <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:600px">
             <tr style="background:#f3f4f6"><th>Product</th><th>Target</th><th>Completed</th><th>%</th></tr>
-            ${missed.map((m: any) => `
+            ${missed
+              .map(
+                (m: any) => `
               <tr>
                 <td>${m.product_id}</td>
                 <td align="right">${m.target_qty}</td>
                 <td align="right">${m.completed_qty ?? 0}</td>
                 <td align="right">${m.target_qty > 0 ? Math.round((Number(m.completed_qty) / Number(m.target_qty)) * 100) : 0}%</td>
               </tr>
-            `).join("")}
+            `,
+              )
+              .join("")}
           </table>
           <p style="margin-top:16px">Overall: <strong>${done}/${total}</strong> (${total > 0 ? Math.round((done / total) * 100) : 0}%)</p>
         `,
@@ -101,12 +108,16 @@ export const sendMissedTargetAlert = createServerFn({ method: "POST" })
       return { sent: true };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to send";
-      if (msg.includes("535") || msg.includes("Username and Password") || msg.includes("authentication")) {
+      if (
+        msg.includes("535") ||
+        msg.includes("Username and Password") ||
+        msg.includes("authentication")
+      ) {
         throw new Error(
           "Gmail rejected the credentials. Ensure you:\n" +
-          "1. Enabled 2-Step Verification at https://myaccount.google.com/security\n" +
-          "2. Created an App Password at https://myaccount.google.com/apppasswords\n" +
-          "3. Pasted the 16-character App Password (spaces optional) — NOT your regular password"
+            "1. Enabled 2-Step Verification at https://myaccount.google.com/security\n" +
+            "2. Created an App Password at https://myaccount.google.com/apppasswords\n" +
+            "3. Pasted the 16-character App Password (spaces optional) — NOT your regular password",
         );
       }
       throw new Error(msg);
@@ -115,9 +126,7 @@ export const sendMissedTargetAlert = createServerFn({ method: "POST" })
 
 export const sendTestEmail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ to: z.string().trim().email().max(255) }).parse(input),
-  )
+  .inputValidator((input) => z.object({ to: z.string().trim().email().max(255) }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: cfg, error } = await (supabase as any)
@@ -154,12 +163,16 @@ export const sendTestEmail = createServerFn({ method: "POST" })
       return { ok: true, messageId: info.messageId };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to send";
-      if (msg.includes("535") || msg.includes("Username and Password") || msg.includes("authentication")) {
+      if (
+        msg.includes("535") ||
+        msg.includes("Username and Password") ||
+        msg.includes("authentication")
+      ) {
         throw new Error(
           "Gmail rejected the credentials. Ensure you:\n" +
-          "1. Enabled 2-Step Verification at https://myaccount.google.com/security\n" +
-          "2. Created an App Password at https://myaccount.google.com/apppasswords\n" +
-          "3. Pasted the 16-character App Password (spaces optional) — NOT your regular password"
+            "1. Enabled 2-Step Verification at https://myaccount.google.com/security\n" +
+            "2. Created an App Password at https://myaccount.google.com/apppasswords\n" +
+            "3. Pasted the 16-character App Password (spaces optional) — NOT your regular password",
         );
       }
       throw new Error(msg);

@@ -4,10 +4,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/AppShell";
 import { ProductCard } from "@/components/ProductCard";
 
-import { SmartInsights } from "@/components/SmartInsights";
 import { KpiCard } from "@/components/KpiCard";
 import { ExportButtons } from "@/components/ExportButtons";
 import { BranchSelector } from "@/components/BranchSelector";
+import { NotificationBell } from "@/components/NotificationBell";
 import { Input } from "@/components/ui/input";
 import { useProducts, useEntries } from "@/hooks/useProduction";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,24 +17,40 @@ import type { Product } from "@/lib/types";
 import { Target, CheckCircle2, AlertOctagon, Percent, Loader2, Users, Search } from "lucide-react";
 import { sendMissedTargetAlert } from "@/lib/smtp.functions";
 
-type SubProductRow = { id: string; product_id: string; name: string; code: string | null; created_at: string };
+type SubProductRow = {
+  id: string;
+  product_id: string;
+  name: string;
+  code: string | null;
+  created_at: string;
+};
 
 export default function Dashboard() {
   const { data: products = [], isLoading: pl } = useProducts();
   const { data: subProducts = [] } = useQuery({
     queryKey: ["sub_products"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("sub_products").select("*").order("created_at", { ascending: true });
+      const { data, error } = await (supabase as any)
+        .from("sub_products")
+        .select("*")
+        .order("created_at", { ascending: true });
       if (error) throw error;
       return data as SubProductRow[];
     },
   });
   // last 30 days for charts
-  const from = new Date(); from.setDate(from.getDate() - 30);
-  const { data: entries = [], isLoading: el } = useEntries({ from: from.toISOString().slice(0, 10), to: todayISO() });
+  const from = new Date();
+  from.setDate(from.getDate() - 30);
+  const { data: entries = [], isLoading: el } = useEntries({
+    from: from.toISOString().slice(0, 10),
+    to: todayISO(),
+  });
 
   const today = todayISO();
-  const todayEntries = useMemo(() => entries.filter((e) => e.entry_date === today), [entries, today]);
+  const todayEntries = useMemo(
+    () => entries.filter((e) => e.entry_date === today),
+    [entries, today],
+  );
 
   // Build list: if a product has sub-products, show product as a group header only
   // and render its sub-products. If no sub-products, render the product normally.
@@ -48,12 +64,19 @@ export default function Dashboard() {
   const renderItems = useMemo(() => {
     const items: RenderItem[] = [];
     const text = search.trim().toLowerCase();
-    let filteredProducts = productFilter ? products.filter((p) => p.id === productFilter) : products;
+
+    // Only show products that have a target set today
+    const productIdsWithTarget = new Set(
+      todayEntries.filter((e) => e.target_qty > 0).map((e) => e.product_id),
+    );
+
+    let filteredProducts = productFilter
+      ? products.filter((p) => p.id === productFilter)
+      : products;
     if (text) {
       filteredProducts = filteredProducts.filter((p) => {
         const productMatch =
-          p.name.toLowerCase().includes(text) ||
-          (p.code ?? "").toLowerCase().includes(text);
+          p.name.toLowerCase().includes(text) || (p.code ?? "").toLowerCase().includes(text);
         const subs = subProducts.filter((s) => s.product_id === p.id);
         const subMatch = subs.some(
           (s) => s.name.toLowerCase().includes(text) || (s.code ?? "").toLowerCase().includes(text),
@@ -63,20 +86,25 @@ export default function Dashboard() {
     }
     filteredProducts.forEach((p) => {
       let subs = subProducts.filter((s) => s.product_id === p.id);
+
       if (subFilter) subs = subs.filter((s) => s.id === subFilter);
       if (text) {
         const productMatch =
-          p.name.toLowerCase().includes(text) ||
-          (p.code ?? "").toLowerCase().includes(text);
+          p.name.toLowerCase().includes(text) || (p.code ?? "").toLowerCase().includes(text);
         if (!productMatch && subs.length > 0) {
           subs = subs.filter(
-            (s) => s.name.toLowerCase().includes(text) || (s.code ?? "").toLowerCase().includes(text),
+            (s) =>
+              s.name.toLowerCase().includes(text) || (s.code ?? "").toLowerCase().includes(text),
           );
         }
       }
+
+      // Only show sub-products that have a target today
       if (subs.length > 0) {
+        const filteredSubs = subs.filter((s) => productIdsWithTarget.has(s.id));
+        if (filteredSubs.length === 0) return;
         items.push({ kind: "header", product: p });
-        subs.forEach((s) => {
+        filteredSubs.forEach((s) => {
           items.push({
             kind: "product",
             product: {
@@ -92,21 +120,27 @@ export default function Dashboard() {
             isSub: true,
           });
         });
-      } else if (!subFilter) {
+      } else if (!subFilter && productIdsWithTarget.has(p.id)) {
         items.push({ kind: "header", product: p });
         items.push({ kind: "product", product: p, isSub: false });
       }
     });
     return items;
-  }, [products, subProducts, productFilter, subFilter, search]);
+  }, [products, subProducts, productFilter, subFilter, search, todayEntries]);
 
   // Filter today's entries to match selection so KPIs reflect the chosen scope.
   const visibleProductIds = useMemo(
-    () => new Set(renderItems.filter((i) => i.kind === "product").map((i) => (i as any).product.id as string)),
+    () =>
+      new Set(
+        renderItems.filter((i) => i.kind === "product").map((i) => (i as any).product.id as string),
+      ),
     [renderItems],
   );
   const filteredTodayEntries = useMemo(
-    () => (productFilter || subFilter ? todayEntries.filter((e) => visibleProductIds.has(e.product_id)) : todayEntries),
+    () =>
+      productFilter || subFilter
+        ? todayEntries.filter((e) => visibleProductIds.has(e.product_id))
+        : todayEntries,
     [todayEntries, visibleProductIds, productFilter, subFilter],
   );
 
@@ -114,7 +148,9 @@ export default function Dashboard() {
     const t = filteredTodayEntries.reduce((s, e) => s + e.target_qty, 0);
     const c = filteredTodayEntries.reduce((s, e) => s + e.completed_qty, 0);
     const mp = filteredTodayEntries.reduce((s, e) => s + (e.manpower ?? 0), 0);
-    const missed = filteredTodayEntries.filter((e) => e.target_qty > 0 && e.completed_qty < e.target_qty).length;
+    const missed = filteredTodayEntries.filter(
+      (e) => e.target_qty > 0 && e.completed_qty < e.target_qty,
+    ).length;
     return { t, c, mp, missed, pct: t ? Math.round((c / t) * 100) : 0 };
   }, [filteredTodayEntries]);
 
@@ -125,16 +161,23 @@ export default function Dashboard() {
     const lastSent = localStorage.getItem("bfp-alert-last-sent");
     const today = new Date().toISOString().slice(0, 10);
     if (lastSent === today) return;
-    sendAlert().then((r) => {
-      if (r.sent) {
-        localStorage.setItem("bfp-alert-last-sent", today);
-      }
-    }).catch(() => {});
+    sendAlert()
+      .then((r) => {
+        if (r.sent) {
+          localStorage.setItem("bfp-alert-last-sent", today);
+        }
+      })
+      .catch(() => {});
   }, [stats.missed, sendAlert]);
 
-  if (pl || el) return (
-    <AppShell><div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></AppShell>
-  );
+  if (pl || el)
+    return (
+      <AppShell>
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppShell>
+    );
 
   return (
     <AppShell>
@@ -145,15 +188,23 @@ export default function Dashboard() {
             Live <span className="text-gradient">Production Pulse</span>
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+            {new Date().toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <BranchSelector />
+          <NotificationBell />
           <ExportButtons
             entries={entries}
             subProducts={subProducts}
-            productsById={Object.fromEntries(products.map((p) => [p.id, { name: p.name, code: p.code }]))}
+            productsById={Object.fromEntries(
+              products.map((p) => [p.id, { name: p.name, code: p.code }]),
+            )}
           />
         </div>
       </div>
@@ -172,10 +223,25 @@ export default function Dashboard() {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <KpiCard label="Today's Target" value={stats.t} icon={Target} />
-        <KpiCard label="Completed" value={stats.c} icon={CheckCircle2} tone={stats.c >= stats.t && stats.t > 0 ? "success" : "default"} />
+        <KpiCard
+          label="Completed"
+          value={stats.c}
+          icon={CheckCircle2}
+          tone={stats.c >= stats.t && stats.t > 0 ? "success" : "default"}
+        />
         <KpiCard label="Total Manpower" value={stats.mp} icon={Users} />
-        <KpiCard label="Achievement" value={`${stats.pct}%`} icon={Percent} tone={stats.pct >= 100 ? "success" : stats.pct >= 85 ? "warning" : "danger"} />
-        <KpiCard label="Missed Targets" value={stats.missed} icon={AlertOctagon} tone={stats.missed > 0 ? "danger" : "default"} />
+        <KpiCard
+          label="Achievement"
+          value={`${stats.pct}%`}
+          icon={Percent}
+          tone={stats.pct >= 100 ? "success" : stats.pct >= 85 ? "warning" : "danger"}
+        />
+        <KpiCard
+          label="Missed Targets"
+          value={stats.missed}
+          icon={AlertOctagon}
+          tone={stats.missed > 0 ? "danger" : "default"}
+        />
       </div>
 
       {/* Product entry cards */}
@@ -187,7 +253,9 @@ export default function Dashboard() {
                 <h2 className="font-display text-2xl font-bold tracking-tight text-gradient">
                   {item.product.name}
                   {item.product.code && (
-                    <span className="ml-2 text-sm text-muted-foreground font-normal">({item.product.code})</span>
+                    <span className="ml-2 text-sm text-muted-foreground font-normal">
+                      ({item.product.code})
+                    </span>
                   )}
                 </h2>
               </div>
@@ -203,7 +271,11 @@ export default function Dashboard() {
         })}
         {products.length === 0 && (
           <div className="col-span-full glass rounded-2xl p-10 text-center text-muted-foreground">
-            No products yet. Add some in <a className="text-primary underline" href="/settings">Settings</a>.
+            No products yet. Add some in{" "}
+            <a className="text-primary underline" href="/settings">
+              Settings
+            </a>
+            .
           </div>
         )}
         {products.length > 0 && renderItems.length === 0 && (
@@ -213,10 +285,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Analytics */}
-      <div className="grid gap-4">
-        <SmartInsights entries={entries} />
-      </div>
+      
     </AppShell>
   );
 }

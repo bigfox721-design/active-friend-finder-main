@@ -5,7 +5,7 @@ import Processes from "@/pages/Processes";
 export const Route = createFileRoute("/processes")({
   head: () => ({ meta: [{ title: "Process Management — Branch Keeper" }] }),
   component: () => (
-    <ProtectedRoute>
+    <ProtectedRoute requiredRole="manager">
       <Processes />
     </ProtectedRoute>
   ),

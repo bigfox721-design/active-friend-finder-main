@@ -49,8 +49,10 @@ export const Link = forwardRef<HTMLAnchorElement, LinkProps>(
 Link.displayName = "Link";
 
 export type NavLinkRenderProps = { isActive: boolean; isPending: boolean };
-export interface NavLinkProps
-  extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "className" | "children"> {
+export interface NavLinkProps extends Omit<
+  AnchorHTMLAttributes<HTMLAnchorElement>,
+  "href" | "className" | "children"
+> {
   to: To;
   end?: boolean;
   replace?: boolean;
@@ -63,10 +65,8 @@ export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
     const pathname = useRouterState({ select: (s) => s.location.pathname });
     const isActive = end ? pathname === to : pathname === to || pathname.startsWith(to + "/");
     const renderProps: NavLinkRenderProps = { isActive, isPending: false };
-    const cls =
-      typeof className === "function" ? className(renderProps) : className;
-    const kids =
-      typeof children === "function" ? children(renderProps) : children;
+    const cls = typeof className === "function" ? className(renderProps) : className;
+    const kids = typeof children === "function" ? children(renderProps) : children;
     return (
       <TSLink ref={ref} to={to as any} replace={replace} className={cn(cls)} {...(rest as any)}>
         {kids}

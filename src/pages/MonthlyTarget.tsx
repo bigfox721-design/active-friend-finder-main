@@ -30,7 +30,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useProducts } from "@/hooks/useProduction";
+import { useRole } from "@/hooks/useRole";
 import { useBranch } from "@/hooks/useBranch";
+import { useCreateActivityLog } from "@/hooks/useActivityLog";
 import { toast } from "sonner";
 import { Target as TargetIcon, Loader2 } from "lucide-react";
 
@@ -51,11 +53,22 @@ type EntryRow = {
   completed_qty: number;
   target_qty: number;
   manpower: number | null;
+  delay_reason: string | null;
 };
 
 const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 const toISO = (d: Date) =>
@@ -64,6 +77,7 @@ const toISO = (d: Date) =>
 export default function MonthlyTarget() {
   const qc = useQueryClient();
   const { branchId } = useBranch();
+  const { role } = useRole();
   const { data: products = [] } = useProducts();
 
   const now = new Date();
@@ -77,7 +91,7 @@ export default function MonthlyTarget() {
   const { data: subProducts = [] } = useQuery({
     queryKey: ["sub_products", "monthly-target"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("sub_products")
         .select("id, product_id, name, code")
         .order("created_at", { ascending: true });
@@ -93,7 +107,10 @@ export default function MonthlyTarget() {
 
   const monthStart = useMemo(() => toISO(new Date(year, month - 1, 1)), [year, month]);
   const daysInMonth = useMemo(() => new Date(year, month, 0).getDate(), [year, month]);
-  const monthEnd = useMemo(() => toISO(new Date(year, month - 1, daysInMonth)), [year, month, daysInMonth]);
+  const monthEnd = useMemo(
+    () => toISO(new Date(year, month - 1, daysInMonth)),
+    [year, month, daysInMonth],
+  );
 
   // Keep selectedDate within the chosen month
   useEffect(() => {
@@ -124,7 +141,7 @@ export default function MonthlyTarget() {
     queryFn: async () => {
       let q = (supabase as any)
         .from("production_entries")
-        .select("id, product_id, entry_date, completed_qty, target_qty, manpower")
+        .select("id, product_id, entry_date, completed_qty, target_qty, manpower, delay_reason")
         .gte("entry_date", monthStart)
         .lte("entry_date", monthEnd);
       if (branchId) q = q.eq("branch_id", branchId);
@@ -144,7 +161,7 @@ export default function MonthlyTarget() {
         .reduce((sum, t) => sum + t.target_qty, 0);
     } else {
       const t = targets.find(
-        (t) => t.product_id === productId && t.sub_product_id === subProductId
+        (t) => t.product_id === productId && t.sub_product_id === subProductId,
       );
       return t ? t.target_qty : 0;
     }
@@ -173,8 +190,11 @@ export default function MonthlyTarget() {
     setInputDailyTarget(String(val));
   }, [selectedDateTarget, defaultDailyTarget, productId, subProductId, selectedDateISO]);
 
+  const logActivity = useCreateActivityLog();
+
   const upsertDailyTarget = useMutation({
     mutationFn: async () => {
+      if (role?.role !== "manager") throw new Error("Only managers can edit targets.");
       if (productId === "ALL") throw new Error("Select a specific product to save a target.");
       const qty = Number(inputDailyTarget);
       if (!Number.isFinite(qty) || qty < 0) throw new Error("Enter a valid target");
@@ -182,10 +202,13 @@ export default function MonthlyTarget() {
       const targetProductId = subProductId !== "ALL" ? subProductId : productId;
 
       // Make sure the products row exists for this id (sub-product mirror)
-      const { data: prodExists } = await (supabase as any)
-        .from("products").select("id").eq("id", targetProductId).maybeSingle();
+      const { data: prodExists } = await supabase
+        .from("products")
+        .select("id")
+        .eq("id", targetProductId)
+        .maybeSingle();
       if (!prodExists) {
-        const { data: sub } = await (supabase as any)
+        const { data: sub } = await supabase
           .from("sub_products")
           .select("id, name, code, product_id, product:products(branch_id, unit)")
           .eq("id", targetProductId)
@@ -229,6 +252,15 @@ export default function MonthlyTarget() {
       }
     },
     onSuccess: () => {
+      supabase.auth.getUser().then(({ data: userData }) => {
+        logActivity.mutate({
+          branch_id: branchId ?? undefined,
+          product_id: subProductId !== "ALL" ? subProductId : productId,
+          action: "target_set",
+          description: `Daily target set to ${inputDailyTarget} for ${subProductId !== "ALL" ? "sub-product" : "product"} on ${format(selectedDate, "PPP")}`,
+          user_name: userData?.user?.email?.split("@")[0] ?? "Unknown",
+        });
+      });
       toast.success(`Target saved for ${format(selectedDate, "PPP")}`);
       qc.invalidateQueries({ queryKey: ["monthly_entries_readonly"] });
       qc.invalidateQueries({ queryKey: ["entries"] });
@@ -263,39 +295,79 @@ export default function MonthlyTarget() {
       const dayTarget = dayTargetOverride || defaultDailyTarget || 0;
       const hasManpower = matching.some((e) => e.manpower != null);
       const manpower = matching.reduce((sum, e) => sum + (e.manpower || 0), 0);
+      const delayReasons = matching
+        .map((e) => e.delay_reason)
+        .filter((r): r is string => r != null);
+      const delayReason = delayReasons.length > 0 ? delayReasons.join("; ") : null;
 
       const isFuture = dateStr > todayISOStr;
-      let status: "Achieved" | "Not Achieved" | "Pending" = "Pending";
-      if (hasEntry) {
+      let status: "Achieved" | "Not Achieved" | "Pending" | "No Target Set" | "No Data Set" = "Pending";
+      if (!hasEntry && dayTarget === 0) status = "No Target Set";
+      else if (hasEntry) {
         if (dayTarget > 0 && actualProd >= dayTarget) status = "Achieved";
         else if (dayTarget === 0 && actualProd > 0) status = "Achieved";
+        else if (!hasManpower) status = "No Data Set";
         else status = "Not Achieved";
       }
 
-      return { day, dateStr, target: dayTarget, actual: actualProd, manpower, hasManpower, hasEntry, isFuture, status };
+      return {
+        day,
+        dateStr,
+        target: dayTarget,
+        actual: actualProd,
+        manpower,
+        hasManpower,
+        hasEntry,
+        isFuture,
+        status,
+        delayReason,
+      };
     });
-  }, [daysInMonth, year, month, entries, productId, subProductId, subProducts, defaultDailyTarget, todayISOStr]);
+  }, [
+    daysInMonth,
+    year,
+    month,
+    entries,
+    productId,
+    subProductId,
+    subProducts,
+    defaultDailyTarget,
+    todayISOStr,
+  ]);
 
   type EditField = "completed" | "manpower";
   const [editingCell, setEditingCell] = useState<{ day: number; field: EditField } | null>(null);
   const [editValue, setEditValue] = useState<string>("");
 
   // Reason-for-delay modal
-  const [reasonModal, setReasonModal] = useState<{ dateStr: string; targetQty: number; completedQty: number } | null>(null);
+  const [reasonModal, setReasonModal] = useState<{
+    dateStr: string;
+    targetQty: number;
+    completedQty: number;
+  } | null>(null);
   const [delayReason, setDelayReason] = useState("");
   const [reasonError, setReasonError] = useState("");
 
   const upsertCompleted = useMutation({
-    mutationFn: async (args: { dateStr: string; field: EditField; qty: number; delay_reason?: string | null }) => {
+    mutationFn: async (args: {
+      dateStr: string;
+      field: EditField;
+      qty: number;
+      delay_reason?: string | null;
+    }) => {
+      if (role?.role !== "manager") throw new Error("Only managers can edit.");
       if (productId === "ALL") throw new Error("Select a specific product to update.");
       const qty = args.qty;
       if (!Number.isFinite(qty) || qty < 0) throw new Error("Enter a valid number");
       const targetProductId = subProductId !== "ALL" ? subProductId : productId;
 
-      const { data: prodExists } = await (supabase as any)
-        .from("products").select("id").eq("id", targetProductId).maybeSingle();
+      const { data: prodExists } = await supabase
+        .from("products")
+        .select("id")
+        .eq("id", targetProductId)
+        .maybeSingle();
       if (!prodExists) {
-        const { data: sub } = await (supabase as any)
+        const { data: sub } = await supabase
           .from("sub_products")
           .select("id, name, code, product_id, product:products(branch_id, unit)")
           .eq("id", targetProductId)
@@ -319,9 +391,10 @@ export default function MonthlyTarget() {
         .eq("entry_date", args.dateStr)
         .maybeSingle();
 
-      const patch: Record<string, any> = args.field === "manpower"
-        ? { manpower: Math.floor(qty) }
-        : { completed_qty: Math.floor(qty) };
+      const patch: Record<string, any> =
+        args.field === "manpower"
+          ? { manpower: Math.floor(qty) }
+          : { completed_qty: Math.floor(qty) };
       if (args.delay_reason !== undefined) patch.delay_reason = args.delay_reason;
 
       if (existing?.id) {
@@ -347,6 +420,24 @@ export default function MonthlyTarget() {
       }
     },
     onSuccess: (_d, vars) => {
+      const targetId = subProductId !== "ALL" ? subProductId : productId;
+      const sub = subProducts.find((s) => s.id === targetId);
+      const prod = products.find((p) => p.id === (sub?.product_id ?? targetId));
+      const productName = sub ? `${prod?.name ?? ""} - ${sub.name}` : (prod?.name ?? targetId);
+      logActivity.mutate({
+        branch_id: branchId ?? undefined,
+        product_id: targetId,
+        action: vars.field === "manpower" ? "entry_updated" : "entry_updated",
+        description: `${vars.field === "manpower" ? "Manpower" : "Completed"} updated to ${vars.qty} for ${productName} — ${format(new Date(vars.dateStr), "PPP")}`,
+      });
+      if (vars.delay_reason) {
+        logActivity.mutate({
+          branch_id: branchId ?? undefined,
+          product_id: targetId,
+          action: "delay_reason",
+          description: `Delay reason for ${productName}: ${vars.delay_reason}`,
+        });
+      }
       toast.success(vars.field === "manpower" ? "Manpower updated" : "Completed updated");
       setEditingCell(null);
       qc.invalidateQueries({ queryKey: ["monthly_entries_readonly"] });
@@ -418,10 +509,14 @@ export default function MonthlyTarget() {
             <div>
               <Label className="mb-1.5 block">Month</Label>
               <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {MONTHS.map((m, i) => (
-                    <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
+                    <SelectItem key={m} value={String(i + 1)}>
+                      {m}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -435,7 +530,7 @@ export default function MonthlyTarget() {
                     variant="outline"
                     className={cn(
                       "w-full justify-start text-left font-normal",
-                      !selectedDate && "text-muted-foreground"
+                      !selectedDate && "text-muted-foreground",
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -474,11 +569,15 @@ export default function MonthlyTarget() {
                   setSubProductId("ALL");
                 }}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Products</SelectItem>
                   {products.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -492,12 +591,22 @@ export default function MonthlyTarget() {
                 disabled={productId === "ALL" || filteredSubs.length === 0}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={productId === "ALL" ? "Select product first" : filteredSubs.length === 0 ? "No sub products" : "All Sub Products"} />
+                  <SelectValue
+                    placeholder={
+                      productId === "ALL"
+                        ? "Select product first"
+                        : filteredSubs.length === 0
+                          ? "No sub products"
+                          : "All Sub Products"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Sub Products</SelectItem>
                   {filteredSubs.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -505,25 +614,35 @@ export default function MonthlyTarget() {
 
             <div>
               <Label className="mb-1.5 block">Target for selected date</Label>
-              <div className="flex gap-2">
+              <form
+                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  upsertDailyTarget.mutate();
+                }}
+              >
                 <Input
                   type="number"
                   min={0}
                   value={inputDailyTarget}
                   onChange={(e) => setInputDailyTarget(e.target.value)}
-                  disabled={productId === "ALL"}
+                  disabled={productId === "ALL" || role?.role !== "manager"}
                   className="rounded-md"
                 />
                 {productId !== "ALL" && (
                   <Button
-                    onClick={() => upsertDailyTarget.mutate()}
-                    disabled={upsertDailyTarget.isPending}
+                    type="submit"
+                    disabled={upsertDailyTarget.isPending || role?.role !== "manager"}
                     className="shrink-0"
                   >
-                    {upsertDailyTarget.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                    {upsertDailyTarget.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Save"
+                    )}
                   </Button>
                 )}
-              </div>
+              </form>
             </div>
           </div>
 
@@ -551,13 +670,16 @@ export default function MonthlyTarget() {
                     <TableHead className="text-right">Completed</TableHead>
                     <TableHead className="text-right">Manpower</TableHead>
                     <TableHead className="w-40 text-center">Status</TableHead>
+                    <TableHead className="max-w-[200px]">Reason</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.map((r) => {
                     const editable = !r.isFuture && productId !== "ALL";
-                    const isEditingCompleted = editingCell?.day === r.day && editingCell?.field === "completed";
-                    const isEditingManpower = editingCell?.day === r.day && editingCell?.field === "manpower";
+                    const isEditingCompleted =
+                      editingCell?.day === r.day && editingCell?.field === "completed";
+                    const isEditingManpower =
+                      editingCell?.day === r.day && editingCell?.field === "manpower";
                     const missing = !r.hasEntry && !r.isFuture;
                     return (
                       <TableRow
@@ -575,7 +697,9 @@ export default function MonthlyTarget() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">{r.target.toLocaleString()}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {r.target.toLocaleString()}
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {isEditingCompleted ? (
                             <Input
@@ -595,7 +719,9 @@ export default function MonthlyTarget() {
                             <button
                               type="button"
                               disabled={!editable}
-                              onClick={() => editable && startEdit(r.day, "completed", r.actual, r.hasEntry)}
+                              onClick={() =>
+                                editable && startEdit(r.day, "completed", r.actual, r.hasEntry)
+                              }
                               className={cn(
                                 "w-full text-right tabular-nums px-2 py-1 rounded",
                                 editable && "hover:bg-muted/50 cursor-pointer",
@@ -605,8 +731,8 @@ export default function MonthlyTarget() {
                                 r.isFuture
                                   ? "Future day — not editable"
                                   : productId === "ALL"
-                                  ? "Select a specific product to edit"
-                                  : "Click to edit"
+                                    ? "Select a specific product to edit"
+                                    : "Click to edit"
                               }
                             >
                               {r.hasEntry ? r.actual.toLocaleString() : "—"}
@@ -632,7 +758,9 @@ export default function MonthlyTarget() {
                             <button
                               type="button"
                               disabled={!editable}
-                              onClick={() => editable && startEdit(r.day, "manpower", r.manpower, r.hasManpower)}
+                              onClick={() =>
+                                editable && startEdit(r.day, "manpower", r.manpower, r.hasManpower)
+                              }
                               className={cn(
                                 "w-full text-right tabular-nums px-2 py-1 rounded",
                                 editable && "hover:bg-muted/50 cursor-pointer",
@@ -642,8 +770,8 @@ export default function MonthlyTarget() {
                                 r.isFuture
                                   ? "Future day — not editable"
                                   : productId === "ALL"
-                                  ? "Select a specific product to edit"
-                                  : "Click to edit"
+                                    ? "Select a specific product to edit"
+                                    : "Click to edit"
                               }
                             >
                               {r.hasManpower ? r.manpower.toLocaleString() : "-"}
@@ -659,10 +787,21 @@ export default function MonthlyTarget() {
                             <Badge className="bg-destructive/15 text-destructive hover:bg-destructive/20 font-medium border-transparent">
                               Not Achieved
                             </Badge>
-                          ) : (
+                          ) : r.status === "No Target Set" ? (
                             <Badge className="bg-muted text-muted-foreground hover:bg-muted/80 font-medium border-transparent">
+                              No Target Set
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-500/15 text-amber-600 hover:bg-amber-500/20 font-medium border-transparent">
                               Pending
                             </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] text-sm truncate" title={r.delayReason ?? ""}>
+                          {r.delayReason ? (
+                            <span className="text-muted-foreground cursor-default">{r.delayReason}</span>
+                          ) : (
+                            <span className="text-muted-foreground/50">—</span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -676,27 +815,51 @@ export default function MonthlyTarget() {
       </div>
 
       {/* Reason for delay modal */}
-      <Dialog open={reasonModal !== null} onOpenChange={(open) => { if (!open) { setReasonModal(null); setDelayReason(""); setReasonError(""); } }}>
+      <Dialog
+        open={reasonModal !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReasonModal(null);
+            setDelayReason("");
+            setReasonError("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Reason for Delay</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Completed ({reasonModal?.completedQty}) is less than Target ({reasonModal?.targetQty}). Please explain the reason for the shortfall.
+              Completed ({reasonModal?.completedQty}) is less than Target ({reasonModal?.targetQty}
+              ). Please explain the reason for the shortfall.
             </p>
             <textarea
               className="w-full min-h-[100px] rounded-lg border border-border bg-background p-3 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Enter the reason for the delay..."
               value={delayReason}
-              onChange={(e) => { setDelayReason(e.target.value); setReasonError(""); }}
+              onChange={(e) => {
+                setDelayReason(e.target.value);
+                setReasonError("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  submitReason();
+                }
+              }}
               autoFocus
             />
-            {reasonError && (
-              <p className="text-sm text-destructive">{reasonError}</p>
-            )}
+            {reasonError && <p className="text-sm text-destructive">{reasonError}</p>}
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => { setReasonModal(null); setDelayReason(""); setReasonError(""); }}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setReasonModal(null);
+                  setDelayReason("");
+                  setReasonError("");
+                }}
+              >
                 Cancel
               </Button>
               <Button onClick={submitReason} disabled={upsertCompleted.isPending}>
