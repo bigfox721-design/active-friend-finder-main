@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { AppShell } from "@/components/AppShell";
+import { PageTitle } from "@/components/PageTitle";
 import { useActivityLogs } from "@/hooks/useActivityLog";
 import { History } from "lucide-react";
 import { fmtDate } from "@/lib/format";
@@ -39,7 +40,7 @@ export default function ActivityStatus() {
           <History className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Activity Status</h1>
+          <PageTitle>Activity <span className="text-gradient">Status</span></PageTitle>
           <p className="text-sm text-muted-foreground">
             Track all actions performed across the system
           </p>

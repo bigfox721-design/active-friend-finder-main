@@ -153,7 +153,7 @@ export default function Settings() {
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="font-display text-3xl font-bold tracking-tight mb-1">Settings</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight mb-1">Settings <span className="text-gradient">Center</span></h1>
         <p className="text-muted-foreground text-sm">
           Manage your profile, appearance, alerts, and email server.
         </p>

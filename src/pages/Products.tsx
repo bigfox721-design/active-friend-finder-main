@@ -195,7 +195,7 @@ export default function Products() {
 
   return (
     <AppShell>
-      <h1 className="font-display text-3xl font-bold tracking-tight mb-1">Products</h1>
+      <h1 className="font-display text-3xl font-bold tracking-tight mb-1">Products <span className="text-gradient">Catalog</span></h1>
       <p className="text-muted-foreground text-sm mb-6">
         Manage products, product codes, and sub-products.
       </p>

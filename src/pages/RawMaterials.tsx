@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { PageTitle } from "@/components/PageTitle";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,7 +80,7 @@ export default function RawMaterialsPage() {
           <Package className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Raw Materials</h1>
+          <PageTitle>Raw <span className="text-gradient">Materials</span></PageTitle>
           <p className="text-sm text-muted-foreground">Manage raw material catalog</p>
         </div>
       </div>

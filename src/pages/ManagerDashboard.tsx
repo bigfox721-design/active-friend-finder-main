@@ -8,7 +8,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { Input } from "@/components/ui/input";
 import { useProducts, useEntries } from "@/hooks/useProduction";
 import { supabase } from "@/integrations/supabase/client";
-import { todayISO } from "@/lib/format";
+import { todayISO, localISO } from "@/lib/format";
 import { Target, CheckCircle2, AlertOctagon, Percent, Loader2, Users, Search } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 
@@ -36,7 +36,7 @@ export default function ManagerDashboard() {
   const from = new Date();
   from.setDate(from.getDate() - 30);
   const { data: entries = [], isLoading: el } = useEntries({
-    from: from.toISOString().slice(0, 10),
+    from: localISO(from),
     to: todayISO(),
   });
   const today = todayISO();

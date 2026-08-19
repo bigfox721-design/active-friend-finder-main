@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
+import { PageTitle } from "@/components/PageTitle";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,13 +26,13 @@ import {
 import { useUpsertStockEntry } from "@/hooks/useStockEntries";
 import { useBranch } from "@/hooks/useBranch";
 import { Package, Save, Loader2, History, ChevronDown, ChevronUp, TrendingDown } from "lucide-react";
-import { todayISO } from "@/lib/format";
+import { todayISO, localISO } from "@/lib/format";
 import { toast } from "sonner";
 
 function sevenDaysAgo() {
   const d = new Date();
   d.setDate(d.getDate() - 7);
-  return d.toISOString().slice(0, 10);
+  return localISO(d);
 }
 
 type SubProduct = { id: string; product_id: string; name: string; code: string | null };
@@ -223,7 +224,7 @@ export default function InventoryPage() {
           <Package className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Inventory Management</h1>
+          <PageTitle>Inventory <span className="text-gradient">Management</span></PageTitle>
           <p className="text-sm text-muted-foreground">Monthly stock tracking for {branchName}</p>
         </div>
       </div>

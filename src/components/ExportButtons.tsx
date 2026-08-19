@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Download, FileSpreadsheet } from "lucide-react";
 import type { EntryWithProduct } from "@/lib/types";
-import { fmtDate } from "@/lib/format";
+import { fmtDate, localISO } from "@/lib/format";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -81,7 +81,7 @@ export const ExportButtons = ({
       doc.setFontSize(12);
       doc.text("Production Report", pageWidth / 2, 22, { align: "center" });
       doc.setFontSize(10);
-      doc.text(`Date: ${fmtPdfDate(new Date().toISOString().slice(0, 10))}`, pageWidth / 2, 28, {
+      doc.text(`Date: ${fmtPdfDate(localISO())}`, pageWidth / 2, 28, {
         align: "center",
       });
       autoTable(doc, {

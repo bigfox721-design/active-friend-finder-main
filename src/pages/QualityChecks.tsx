@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
+import { PageTitle } from "@/components/PageTitle";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,7 +64,7 @@ export default function QualityChecksPage() {
   const [formDelivered, setFormDelivered] = useState("");
   const [formReason, setFormReason] = useState("");
   const [formNotes, setFormNotes] = useState("");
-  const [formDate, setFormDate] = useState(new Date().toISOString().slice(0, 10));
+  const [formDate, setFormDate] = useState(todayISO());
   const [activeTab, setActiveTab] = useState<"history" | "products" | "reasons">("history");
 
   const { data: todayProdEntry } = useQuery({
@@ -92,7 +93,7 @@ export default function QualityChecksPage() {
     setFormDelivered("");
     setFormReason("");
     setFormNotes("");
-    setFormDate(new Date().toISOString().slice(0, 10));
+    setFormDate(todayISO());
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,7 +135,7 @@ export default function QualityChecksPage() {
             <ClipboardCheck className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Quality Checks</h1>
+            <PageTitle>Quality <span className="text-gradient">Checks</span></PageTitle>
             <p className="text-sm text-muted-foreground">
               Track passed, rejected, and delivered quantities{branchName ? ` for ${branchName}` : ""}
             </p>

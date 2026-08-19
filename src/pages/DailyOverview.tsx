@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
+import { PageTitle } from "@/components/PageTitle";
 import { supabase } from "@/integrations/supabase/client";
-import { useProducts, useTodayEntries, useUpsertEntry } from "@/hooks/useProduction";
+import { useProducts, useEntries, useUpsertEntry } from "@/hooks/useProduction";
 import { useRole } from "@/hooks/useRole";
 import { useMyActiveOverrides } from "@/hooks/useOverride";
 import { todayISO } from "@/lib/format";
@@ -37,10 +38,13 @@ export default function DailyOverview() {
       return data as SubProductRow[];
     },
   });
-  const { data: todayEntries = [] } = useTodayEntries();
-  const upsert = useUpsertEntry();
   const { role } = useRole();
   const { data: activeOverrides = [] } = useMyActiveOverrides();
+
+  const [selectedDate, setSelectedDate] = useState<string>(todayISO());
+  const isPastDate = selectedDate < todayISO();
+  const { data: todayEntries = [] } = useEntries({ from: selectedDate, to: selectedDate });
+  const upsert = useUpsertEntry();
 
   const [selectedProduct, setSelectedProductState] = useState<string>(ALL);
   const [selectedSubProduct, setSelectedSubProduct] = useState<string>(ALL);
@@ -76,6 +80,26 @@ export default function DailyOverview() {
     if (selectedProduct !== ALL && filteredSubs.length === 0) return selectedProduct;
     return null;
   }, [selectedProduct, selectedSubProduct, filteredSubs.length]);
+
+  // Products the current user can edit via an active override.
+  // A grant on a parent product covers the product and ALL of its
+  // sub-products. A grant on a specific sub-product covers ONLY that
+  // sub-product — its sibling sub-products stay locked.
+  const overrideProductIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const o of activeOverrides) {
+      const sub = subProducts.find((s) => s.id === o.product_id);
+      if (sub) {
+        ids.add(sub.id);
+      } else {
+        ids.add(o.product_id);
+        for (const s of subProducts) {
+          if (s.product_id === o.product_id) ids.add(s.id);
+        }
+      }
+    }
+    return ids;
+  }, [activeOverrides, subProducts]);
 
   // Sum metrics for the current selection (covers "All" + grouped views).
   const metrics = useMemo(() => {
@@ -122,10 +146,8 @@ export default function DailyOverview() {
 
   const onSave = async () => {
     const isManager = role?.role === "manager";
-    const hasOverride = targetProductId
-      ? activeOverrides.some((o: any) => o.product_id === targetProductId)
-      : false;
-    const canEditTargets = isManager || hasOverride;
+    const hasOverride = targetProductId ? overrideProductIds.has(targetProductId) : false;
+    const canEditTargets = isManager;
     if (!targetProductId) return;
     if (canEditTargets) {
       const raw = (v: string) => (v.trim() === "" ? "0" : v);
@@ -143,7 +165,7 @@ export default function DailyOverview() {
 
       if (c < t && completed.trim() !== "" && completedChanged) {
         setReasonModal({
-          payload: { product_id: targetProductId, entry_date: todayISO(), target_qty: t, completed_qty: c, manpower: m },
+          payload: { product_id: targetProductId, entry_date: selectedDate, target_qty: t, completed_qty: c, manpower: m },
           source: "save",
         });
         setDelayReason("");
@@ -153,7 +175,7 @@ export default function DailyOverview() {
 
       const payload = {
         product_id: targetProductId,
-        entry_date: todayISO(),
+        entry_date: selectedDate,
         target_qty: t,
         completed_qty: c,
         manpower: m,
@@ -170,10 +192,23 @@ export default function DailyOverview() {
         toast.error("Enter a valid completed quantity");
         return;
       }
+      const existingEntry = todayEntries.find((e) => e.product_id === targetProductId);
+      const existingTarget = existingEntry?.target_qty ?? 0;
+      const existingCompleted = existingEntry?.completed_qty;
+      const completedChanged = existingCompleted == null || existingCompleted !== c;
+      if (c < existingTarget && completed.trim() !== "" && completedChanged) {
+        setReasonModal({
+          payload: { product_id: targetProductId, entry_date: selectedDate, target_qty: existingTarget, completed_qty: c },
+          source: "completed",
+        });
+        setDelayReason("");
+        setReasonError("");
+        return;
+      }
       try {
         await upsert.mutateAsync({
           product_id: targetProductId,
-          entry_date: todayISO(),
+          entry_date: selectedDate,
           completed_qty: c,
         });
         toast.success("Completed updated");
@@ -206,14 +241,16 @@ export default function DailyOverview() {
 
   const setSingleField = async (field: "target" | "completed" | "manpower", rawValue: string) => {
     const isManager = role?.role === "manager";
-    const hasOverride = targetProductId
-      ? activeOverrides.some((o: any) => o.product_id === targetProductId)
-      : false;
-    if (!isManager && !hasOverride && field !== "completed") {
+    const hasOverride = targetProductId ? overrideProductIds.has(targetProductId) : false;
+    if (!isManager && field !== "completed") {
       toast.error("Only managers can edit targets or manpower.");
       return;
     }
     if (!targetProductId) return;
+    if (field === "completed" && isPastDate && !isManager && !hasOverride) {
+      toast.error("You don't have override access for this product on this date.");
+      return;
+    }
     const n = rawValue.trim() === "" ? 0 : parseNum(rawValue);
     if (n === undefined || Number.isNaN(n)) {
       setInvalidField(field);
@@ -224,7 +261,7 @@ export default function DailyOverview() {
     const existing = todayEntries.find((e) => e.product_id === targetProductId);
     const payload = {
       product_id: targetProductId,
-      entry_date: todayISO(),
+      entry_date: selectedDate,
       target_qty: existing?.target_qty ?? 0,
       completed_qty: existing?.completed_qty ?? 0,
       manpower: existing?.manpower ?? 0,
@@ -257,19 +294,22 @@ export default function DailyOverview() {
   };
 
   const isManager = role?.role === "manager";
-  const hasOverride = targetProductId
-    ? activeOverrides.some((o: any) => o.product_id === targetProductId)
-    : false;
-  const canEditTargets = isManager || hasOverride;
-  const editingDisabled = !targetProductId;
-  const targetDisabled = editingDisabled || !canEditTargets;
-  const manpowerDisabled = editingDisabled || !canEditTargets;
-  const completedDisabled = editingDisabled;
-  const helper = editingDisabled
+  const hasAnyOverride = activeOverrides.length > 0;
+  const hasOverride = targetProductId ? overrideProductIds.has(targetProductId) : false;
+  // Only managers can set Morning Target and Manpower. Users can only update
+  // the Evening Completed — today always, past dates only with an override.
+  const targetDisabled = !targetProductId || !isManager;
+  const manpowerDisabled = !targetProductId || !isManager;
+  const completedDisabled = !targetProductId || (isPastDate && !isManager && !hasOverride);
+  const helper = !targetProductId
     ? selectedProduct === ALL
-      ? "Select a product to edit today's values."
-      : "Select a sub-product to edit today's values."
-    : null;
+      ? "Select a product to edit this date's values."
+      : "Select a sub-product to edit this date's values."
+    : isPastDate && !isManager && !hasOverride
+      ? "Past dates can only be edited when the manager has granted you override access for this product."
+      : !isManager
+        ? "As a user you can only update the Evening Completed. Morning Target and Manpower are set by the manager."
+        : null;
 
   const submitWithReason = async () => {
     const reason = delayReason.trim();
@@ -293,10 +333,36 @@ export default function DailyOverview() {
     <AppShell>
       <div className="max-w-xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">Daily Overview</h1>
+          <PageTitle>Daily <span className="text-gradient">Overview</span></PageTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Filter today's production by product and sub-product, and update values.
+            Filter production by date, product, and sub-product, and update values.
           </p>
+          <div className="flex items-center gap-2 text-xs mt-3 px-3 py-2 rounded-lg border border-border/60 bg-secondary/40">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+            <span className="text-muted-foreground">
+              {activeOverrides.length > 0 ? (
+                <>
+                  Override ends:{" "}
+                  <span className="font-medium text-foreground">
+                    {activeOverrides
+                      .map((o: any) => new Date(o.expires_at).toLocaleString())
+                      .join(", ")}
+                  </span>
+                  {" · "}
+                  Active overrides:{" "}
+                  <span className="font-medium text-foreground">
+                    {activeOverrides
+                      .map((o: any) => o.product?.name ?? o.product_id?.slice(0, 8))
+                      .join(", ")}
+                  </span>
+                </>
+              ) : (
+                <>
+                  Role: <span className="font-medium text-foreground">{role?.role ?? "loading"}</span>
+                </>
+              )}
+            </span>
+          </div>
         </div>
 
         <div className="rounded-xl border border-border/60 bg-secondary/40 p-5 flex flex-col gap-4">
@@ -310,6 +376,36 @@ export default function DailyOverview() {
                 <RotateCcw className="h-3 w-3 mr-1" /> Reset
               </Button>
             )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs text-muted-foreground">Entry Date</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={selectedDate}
+                max={todayISO()}
+                onChange={(e) => setSelectedDate(e.target.value || todayISO())}
+                className="h-9 text-sm bg-background/50"
+              />
+              {selectedDate !== todayISO() && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 px-3 text-xs shrink-0"
+                  onClick={() => setSelectedDate(todayISO())}
+                >
+                  Today
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {isManager
+                ? "Managers can edit any date."
+                : hasAnyOverride
+                  ? "You can edit past dates for the products the manager granted you access to."
+                  : "You can view any date, but editing past dates requires a manager-granted override."}
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -380,7 +476,7 @@ export default function DailyOverview() {
                 value={target}
                 onChange={(e) => setTarget(e.target.value)}
                 disabled={targetDisabled}
-                placeholder={editingDisabled ? String(metrics.target) : "0"}
+                placeholder={targetDisabled ? String(metrics.target) : "0"}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -413,7 +509,7 @@ export default function DailyOverview() {
                 value={completed}
                 onChange={(e) => setCompleted(e.target.value)}
                 disabled={completedDisabled}
-                placeholder={editingDisabled ? String(metrics.completed) : "0"}
+                placeholder={completedDisabled ? String(metrics.completed) : "0"}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -446,7 +542,7 @@ export default function DailyOverview() {
                 value={manpower}
                 onChange={(e) => setManpower(e.target.value)}
                 disabled={manpowerDisabled}
-                placeholder={editingDisabled ? String(metrics.manpower) : "0"}
+                placeholder={manpowerDisabled ? String(metrics.manpower) : "0"}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -468,7 +564,7 @@ export default function DailyOverview() {
 
             <Button
               onClick={onSave}
-              disabled={editingDisabled || upsert.isPending}
+              disabled={completedDisabled || upsert.isPending}
               className="w-full mt-2"
             >
               <Save className="h-4 w-4 mr-2" />
@@ -483,9 +579,13 @@ export default function DailyOverview() {
               }`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${metrics.completed > 0 ? "bg-success" : "bg-warning"}`} />
                 {metrics.completed > 0
-                  ? "Production completed — Inventory, Quality, and Sales are enabled"
+                  ? isPastDate
+                    ? "Evening target recorded for this date"
+                    : "Production completed — Inventory, Quality, and Sales are enabled"
                   : metrics.target > 0
-                    ? "Production in progress — Set Evening Completed to enable Inventory, Quality, and Sales"
+                    ? isPastDate
+                      ? "Evening target not recorded for this date"
+                      : "Production in progress — Set Evening Completed to enable Inventory, Quality, and Sales"
                     : "Set Morning Target first"}
               </div>
             )}

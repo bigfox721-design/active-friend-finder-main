@@ -1,6 +1,9 @@
+import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBranch } from "./useBranch";
+import { useRawMaterials } from "./useRawMaterials";
+import { useCreateActivityLog } from "./useActivityLog";
 
 export type MaterialTransfer = {
   id: string;
@@ -82,6 +85,91 @@ export const useUpdateTransferStatus = () => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["material_transfers"] });
+    },
+  });
+};
+
+export const useCreateMaterialRequest = () => {
+  const qc = useQueryClient();
+  const logActivity = useCreateActivityLog();
+  const { data: rawMaterials } = useRawMaterials();
+  const materialName = useCallback(
+    (id: string) => rawMaterials?.find((m) => m.id === id)?.name ?? "Unknown",
+    [rawMaterials],
+  );
+  return useMutation({
+    mutationFn: async (input: {
+      raw_material_id: string;
+      quantity: number;
+      requesting_branch_id: string;
+      requested_from_branch_id: string;
+      notes?: string;
+    }) => {
+      const { data, error } = await supabase.rpc("create_material_request", {
+        p_raw_material_id: input.raw_material_id,
+        p_quantity: input.quantity,
+        p_requesting_branch_id: input.requesting_branch_id,
+        p_requested_from_branch_id: input.requested_from_branch_id,
+        p_notes: input.notes ?? null,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, input) => {
+      qc.invalidateQueries({ queryKey: ["material_transfers"] });
+      logActivity.mutate({
+        branch_id: input.requesting_branch_id,
+        action: "transfer_init",
+        description: `Material requested: ${materialName(input.raw_material_id)} x${input.quantity}`,
+      });
+    },
+  });
+};
+
+export const useFulfillMaterialRequest = () => {
+  const qc = useQueryClient();
+  const logActivity = useCreateActivityLog();
+  const { branchId } = useBranch();
+  return useMutation({
+    mutationFn: async (transferId: string) => {
+      const { data, error } = await supabase.rpc("fulfill_material_request", {
+        p_transfer_id: transferId,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["raw_inventory"] });
+      qc.invalidateQueries({ queryKey: ["material_transfers"] });
+      logActivity.mutate({
+        branch_id: branchId ?? undefined,
+        action: "transfer_complete",
+        description: "Material request fulfilled and sent",
+      });
+    },
+  });
+};
+
+export const useCancelMaterialRequest = () => {
+  const qc = useQueryClient();
+  const logActivity = useCreateActivityLog();
+  const { branchId } = useBranch();
+  return useMutation({
+    mutationFn: async (transferId: string) => {
+      const { data, error } = await supabase.rpc("cancel_material_request", {
+        p_transfer_id: transferId,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["raw_inventory"] });
+      qc.invalidateQueries({ queryKey: ["material_transfers"] });
+      logActivity.mutate({
+        branch_id: branchId ?? undefined,
+        action: "transfer_init",
+        description: "Material request cancelled",
+      });
     },
   });
 };

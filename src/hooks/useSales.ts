@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBranch } from "./useBranch";
 import { useAuth } from "./useAuth";
 import { useCreateActivityLog } from "./useActivityLog";
+import { todayISO } from "@/lib/format";
 
 export type SaleEntry = {
   id: string;
@@ -57,7 +58,7 @@ export const useRecordSale = () => {
           p_product_id: input.product_id,
           p_quantity: input.quantity,
           p_branch_id: branchId!,
-          p_sale_date: input.sale_date ?? new Date().toISOString().slice(0, 10),
+          p_sale_date: input.sale_date ?? todayISO(),
           p_reference_no: input.reference_no ?? null,
           p_override_approved_by: input.override_approved_by ?? null,
         });

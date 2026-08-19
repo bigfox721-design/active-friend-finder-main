@@ -95,7 +95,7 @@ export default function Accessories() {
 
   return (
     <AppShell>
-      <h1 className="font-display text-3xl font-bold tracking-tight mb-1">Accessories</h1>
+      <h1 className="font-display text-3xl font-bold tracking-tight mb-1">Accessories <span className="text-gradient">Catalog</span></h1>
       <p className="text-muted-foreground text-sm mb-6">
         Manage accessories, codes, and units.
       </p>

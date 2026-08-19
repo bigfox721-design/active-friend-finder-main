@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
+import { PageTitle } from "@/components/PageTitle";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,10 +31,22 @@ import { KeyRound, Shield, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 type AppUser = { id: string; name: string | null; email: string | null; role: string };
+type SubProductRow = { id: string; product_id: string; name: string; code: string | null };
 
 export default function ManagerOverridePage() {
   const { branchId } = useBranch();
   const { data: products = [] } = useProducts();
+  const { data: subProducts = [] } = useQuery({
+    queryKey: ["sub_products"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("sub_products")
+        .select("id, product_id, name, code")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as SubProductRow[];
+    },
+  });
   const { data: overrides = [], isLoading } = useEditOverrides();
   const grantOverride = useGrantOverride();
   const revokeOverride = useRevokeOverride();
@@ -53,29 +66,50 @@ export default function ManagerOverridePage() {
 
   const [selectedUser, setSelectedUser] = useState("");
   const [selectedProduct, setSelectedProduct] = useState("");
+  const [selectedSubProduct, setSelectedSubProduct] = useState("");
   const [expiresInHours, setExpiresInHours] = useState("24");
   const [reason, setReason] = useState("");
 
+  // Resolve a product id to a readable name, including sub-products.
+  const getProductName = useMemo(() => {
+    const map = new Map<string, string>();
+    const parents = new Map<string, string>();
+    for (const p of products) parents.set(p.id, p.name);
+    for (const p of products) map.set(p.id, p.name);
+    for (const s of subProducts) {
+      const parent = parents.get(s.product_id);
+      map.set(s.id, parent ? `${parent} — ${s.name}` : s.name);
+    }
+    return (id: string) => map.get(id) ?? id;
+  }, [products, subProducts]);
+
+  // Sub-products belonging to the currently selected product.
+  const productSubProducts = useMemo(
+    () => subProducts.filter((s) => s.product_id === selectedProduct),
+    [subProducts, selectedProduct],
+  );
+
   const handleGrant = async () => {
     if (!selectedUser) return toast.error("Select a user");
-    if (!selectedProduct) return toast.error("Select a product");
+    const grantProductId = selectedSubProduct || selectedProduct;
+    if (!grantProductId) return toast.error("Select a product or sub product");
     const hours = Number(expiresInHours);
     if (!Number.isFinite(hours) || hours <= 0) return toast.error("Enter valid hours");
 
     const expiresAt = new Date(Date.now() + hours * 3600_000).toISOString();
     const userName = users.find((u) => u.id === selectedUser)?.name ?? "Unknown";
-    const productName = products.find((p) => p.id === selectedProduct)?.name ?? "Unknown";
+    const productName = getProductName(grantProductId);
 
     await grantOverride.mutateAsync({
       user_id: selectedUser,
-      product_id: selectedProduct,
+      product_id: grantProductId,
       reason: reason || `Override granted for ${productName}`,
       expires_at: expiresAt,
     });
 
     await createLog.mutateAsync({
       branch_id: branchId ?? undefined,
-      product_id: selectedProduct,
+      product_id: grantProductId,
       action: "override_granted",
       description: `Edit override granted to ${userName} for ${productName} (${hours}h)`,
     });
@@ -83,6 +117,7 @@ export default function ManagerOverridePage() {
     toast.success(`Override granted to ${userName}`);
     setSelectedUser("");
     setSelectedProduct("");
+    setSelectedSubProduct("");
     setReason("");
   };
 
@@ -108,7 +143,7 @@ export default function ManagerOverridePage() {
           <Shield className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Manager Override</h1>
+          <PageTitle>Manager <span className="text-gradient">Override</span></PageTitle>
           <p className="text-sm text-muted-foreground">
             Grant temporary edit access to users for specific products
           </p>
@@ -124,7 +159,7 @@ export default function ManagerOverridePage() {
             e.preventDefault();
             handleGrant();
           }}
-          className="grid grid-cols-1 md:grid-cols-5 gap-4"
+          className="grid grid-cols-1 md:grid-cols-6 gap-4"
         >
           <div>
             <Label>User</Label>
@@ -143,14 +178,49 @@ export default function ManagerOverridePage() {
           </div>
           <div>
             <Label>Product</Label>
-            <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+            <Select
+              value={selectedProduct}
+              onValueChange={(v) => {
+                setSelectedProduct(v);
+                setSelectedSubProduct("");
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select product" />
               </SelectTrigger>
               <SelectContent>
+                {products.length === 0 && (
+                  <SelectItem value="__none__" disabled>
+                    No products
+                  </SelectItem>
+                )}
                 {products.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Sub Product</Label>
+            <Select
+              value={selectedSubProduct}
+              disabled={!selectedProduct}
+              onValueChange={setSelectedSubProduct}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={selectedProduct ? "Select sub product" : "Select a product first"} />
+              </SelectTrigger>
+              <SelectContent>
+                {productSubProducts.length === 0 && (
+                  <SelectItem value="__none__" disabled>
+                    No sub products for this product
+                  </SelectItem>
+                )}
+                {productSubProducts.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -213,7 +283,7 @@ export default function ManagerOverridePage() {
                 {activeOverrides.map((o: any) => (
                   <TableRow key={o.id}>
                     <TableCell>{o.user?.name ?? "Unknown"}</TableCell>
-                    <TableCell>{o.product?.name ?? "—"}</TableCell>
+                    <TableCell>{getProductName(o.product_id)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {o.reason ?? "—"}
                     </TableCell>
@@ -258,7 +328,7 @@ export default function ManagerOverridePage() {
                   {expiredOverrides.map((o: any) => (
                     <TableRow key={o.id} className="opacity-60">
                       <TableCell>{o.user?.name ?? "Unknown"}</TableCell>
-                      <TableCell>{o.product?.name ?? "—"}</TableCell>
+                      <TableCell>{getProductName(o.product_id)}</TableCell>
                       <TableCell className="text-sm">
                         {new Date(o.expires_at).toLocaleString()}
                       </TableCell>

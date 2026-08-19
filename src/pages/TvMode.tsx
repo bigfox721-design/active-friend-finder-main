@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEntries, useProducts } from "@/hooks/useProduction";
 import { useInventory, useAccessories, useAccessoryInventory, InventoryLogEntry } from "@/hooks/useInventory";
 import { useStockEntries } from "@/hooks/useStockEntries";
-import { fmtNum, pct, statusOf, todayISO } from "@/lib/format";
+import { fmtNum, pct, statusOf, todayISO, localISO } from "@/lib/format";
 import { ChartSwitcher } from "@/components/ChartSwitcher";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -51,12 +51,12 @@ export default function TvMode() {
   const monthStart = useMemo(() => {
     const d = new Date();
     d.setDate(1);
-    return d.toISOString().slice(0, 10);
+    return localISO(d);
   }, []);
   const monthEnd = useMemo(() => {
     const d = new Date();
     d.setMonth(d.getMonth() + 1, 0);
-    return d.toISOString().slice(0, 10);
+    return localISO(d);
   }, []);
   const { data: entries = [] } = useEntries({ from: monthStart, to: monthEnd });
   const { data: inventory = [] } = useInventory();
@@ -289,7 +289,7 @@ export default function TvMode() {
   return (
     <div
       className={cn(
-        "min-h-screen grid-bg p-6 md:p-10 relative overflow-hidden flex flex-col",
+        "h-screen grid-bg p-6 md:p-10 relative flex flex-col overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         anyMissed && "bg-destructive/20",
       )}
     >
@@ -448,7 +448,7 @@ export default function TvMode() {
       {/* Rotating slide content */}
       <div
         className={cn(
-          "overflow-hidden",
+          "overflow-visible",
           displayMode === "four" && slides[slide] === "monthly"
             ? "flex-1 flex flex-col"
             : "min-h-[40vh]",
@@ -783,15 +783,17 @@ const RotatingProducts = ({
   const current = items[currentIndex] ?? items[0];
   const achieved = current.target > 0 && current.completed >= current.target;
   const perWorker =
-    current.manpower > 0 ? Math.round((current.completed / current.manpower) * 10) / 10 : 0;
+    current.manpower > 0 && Number.isFinite(current.completed)
+      ? Math.round((current.completed / current.manpower) * 10) / 10
+      : 0;
 
   return (
     <div className="animate-fade-in">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl md:text-5xl font-display font-extrabold uppercase tracking-wide text-gradient">
+      <div className="text-center mb-6">
+        <h2 className="text-2xl md:text-3xl font-display font-extrabold uppercase tracking-wide text-gradient">
           Today's Product Record
         </h2>
-        <p className="text-sm md:text-base text-foreground/70 mt-2 uppercase tracking-widest">
+        <p className="text-xs md:text-sm text-foreground/70 mt-1.5 uppercase tracking-widest">
           {new Date().toLocaleDateString(undefined, {
             weekday: "long",
             month: "long",
@@ -805,20 +807,20 @@ const RotatingProducts = ({
         <div
           key={current.id}
           className={cn(
-            "glass rounded-3xl p-10 md:p-14 w-full max-w-5xl animate-fade-in transition-all",
+            "glass rounded-3xl p-6 md:p-8 w-full max-w-4xl animate-fade-in transition-all",
             achieved
               ? "border-2 border-green-500 shadow-lg shadow-green-500/30"
               : "border-2 border-red-500",
           )}
         >
           {/* Highlight badges */}
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-4">
             {achieved ? (
-              <span className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-green-500/15 text-green-500 text-lg font-bold uppercase tracking-widest border border-green-500/40">
+              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-green-500/15 text-green-500 text-sm font-bold uppercase tracking-widest border border-green-500/40">
                 🏆 Best Performer
               </span>
             ) : (
-              <span className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-red-500/15 text-red-500 text-lg font-bold uppercase tracking-widest border border-red-500/40">
+              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-red-500/15 text-red-500 text-sm font-bold uppercase tracking-widest border border-red-500/40">
                 ⚠️ Needs Attention
               </span>
             )}
@@ -826,31 +828,31 @@ const RotatingProducts = ({
 
           {/* Parent / category */}
           {current.parentName && (
-            <p className="text-center text-lg uppercase tracking-[0.3em] text-foreground/60 mb-2">
+            <p className="text-center text-sm md:text-base uppercase tracking-[0.3em] text-foreground/60 mb-1">
               {current.parentName}
             </p>
           )}
 
           {/* Product name */}
-          <h3 className="text-3xl md:text-5xl font-display font-bold text-center mb-10">
+          <h3 className="text-2xl md:text-3xl font-display font-bold text-center mb-6">
             {current.name}
           </h3>
 
           {/* Stats grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             <div className="flex flex-col items-center text-center">
-              <div className="text-lg uppercase tracking-widest text-foreground/70 mb-2">
+              <div className="text-xs md:text-sm uppercase tracking-widest text-foreground/70 mb-1.5">
                 Target
               </div>
-              <div className="text-5xl font-bold tabular-nums">{fmtNum(current.target)}</div>
+              <div className="text-3xl md:text-4xl font-bold tabular-nums">{fmtNum(current.target)}</div>
             </div>
             <div className="flex flex-col items-center text-center">
-              <div className="text-lg uppercase tracking-widest text-foreground/70 mb-2">
+              <div className="text-xs md:text-sm uppercase tracking-widest text-foreground/70 mb-1.5">
                 Completed
               </div>
               <div
                 className={cn(
-                  "text-5xl font-bold tabular-nums",
+                  "text-3xl md:text-4xl font-bold tabular-nums",
                   achieved ? "text-green-500" : "text-red-500",
                 )}
               >
@@ -858,34 +860,34 @@ const RotatingProducts = ({
               </div>
             </div>
             <div className="flex flex-col items-center text-center">
-              <div className="text-lg uppercase tracking-widest text-foreground/70 mb-2">
+              <div className="text-xs md:text-sm uppercase tracking-widest text-foreground/70 mb-1.5">
                 Manpower
               </div>
-              <div className="text-5xl font-bold tabular-nums">{fmtNum(current.manpower)}</div>
+              <div className="text-3xl md:text-4xl font-bold tabular-nums">{fmtNum(current.manpower)}</div>
             </div>
             <div className="flex flex-col items-center text-center">
-              <div className="text-lg uppercase tracking-widest text-foreground/70 mb-2">
+              <div className="text-xs md:text-sm uppercase tracking-widest text-foreground/70 mb-1.5">
                 Per Worker
               </div>
-              <div className="text-5xl font-bold tabular-nums">
-                {current.manpower > 0 ? perWorker : "—"}
+              <div className="text-3xl md:text-4xl font-bold tabular-nums">
+                {current.manpower > 0 ? perWorker : 0}
               </div>
             </div>
           </div>
 
           {/* Progress indicator dots */}
-          <div className="flex flex-wrap justify-center gap-2 mt-10">
+          <div className="flex flex-wrap justify-center gap-2 mt-6">
             {items.map((_, i) => (
               <span
                 key={i}
                 className={cn(
-                  "h-2 rounded-full transition-all",
-                  i === currentIndex ? "w-8 bg-primary" : "w-2 bg-muted",
+                  "h-1.5 rounded-full transition-all",
+                  i === currentIndex ? "w-6 bg-primary" : "w-1.5 bg-muted",
                 )}
               />
             ))}
           </div>
-          <div className="text-center text-sm text-foreground/60 mt-3 uppercase tracking-widest tabular-nums">
+          <div className="text-center text-xs text-foreground/60 mt-2 uppercase tracking-widest tabular-nums">
             {currentIndex + 1} / {items.length}
           </div>
         </div>

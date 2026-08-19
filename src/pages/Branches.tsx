@@ -89,7 +89,7 @@ export default function Branches() {
 
   return (
     <AppShell>
-      <h1 className="font-display text-3xl font-bold tracking-tight mb-1">Branches</h1>
+      <h1 className="font-display text-3xl font-bold tracking-tight mb-1">Branches <span className="text-gradient">Management</span></h1>
       <p className="text-muted-foreground text-sm mb-6">
         Create, rename, and manage your branches.
       </p>

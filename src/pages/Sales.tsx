@@ -19,6 +19,7 @@ import { useSales, useRecordSale } from "@/hooks/useSales";
 import { useBranch } from "@/hooks/useBranch";
 import { useRole } from "@/hooks/useRole";
 import { supabase } from "@/integrations/supabase/client";
+import { PageTitle } from "@/components/PageTitle";
 import { ShoppingCart, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -194,7 +195,7 @@ export default function SalesPage() {
           <ShoppingCart className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Sales</h1>
+          <PageTitle>Sales <span className="text-gradient">Record</span></PageTitle>
           <p className="text-sm text-muted-foreground">Record sales for {branchName}</p>
         </div>
       </div>

@@ -85,3 +85,39 @@ export const useMarkAllAsRead = () => {
     },
   });
 };
+
+export const useClearAllNotifications = () => {
+  const qc = useQueryClient();
+  const { branchId } = useBranch();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any)
+        .from("notifications")
+        .delete()
+        .eq("branch_id", branchId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notifications", branchId] });
+      qc.invalidateQueries({ queryKey: ["notifications", branchId, "unread"] });
+    },
+  });
+};
+
+export const useDeleteNotification = () => {
+  const qc = useQueryClient();
+  const { branchId } = useBranch();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any)
+        .from("notifications")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notifications", branchId] });
+      qc.invalidateQueries({ queryKey: ["notifications", branchId, "unread"] });
+    },
+  });
+};

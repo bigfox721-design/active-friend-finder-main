@@ -69,7 +69,7 @@ export default function Profile() {
 
   return (
     <AppShell>
-      <h1 className="font-display text-3xl font-bold tracking-tight mb-1">Profile</h1>
+      <h1 className="font-display text-3xl font-bold tracking-tight mb-1">Profile <span className="text-gradient">Settings</span></h1>
       <p className="text-muted-foreground text-sm mb-6">
         Manage your account details and profile photo.
       </p>

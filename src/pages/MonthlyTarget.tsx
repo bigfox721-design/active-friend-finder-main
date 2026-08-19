@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { PageTitle } from "@/components/PageTitle";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -496,7 +497,7 @@ export default function MonthlyTarget() {
             <TargetIcon className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Monthly Target</h1>
+            <PageTitle>Monthly <span className="text-gradient">Target</span></PageTitle>
             <p className="text-sm text-muted-foreground">
               Pick a date and set the target you want for that day.
             </p>

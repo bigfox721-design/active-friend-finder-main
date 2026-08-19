@@ -11,7 +11,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { Input } from "@/components/ui/input";
 import { useProducts, useEntries } from "@/hooks/useProduction";
 import { supabase } from "@/integrations/supabase/client";
-import { todayISO } from "@/lib/format";
+import { todayISO, localISO } from "@/lib/format";
 import type { Product } from "@/lib/types";
 
 import { Target, CheckCircle2, AlertOctagon, Percent, Loader2, Users, Search } from "lucide-react";
@@ -42,7 +42,7 @@ export default function Dashboard() {
   const from = new Date();
   from.setDate(from.getDate() - 30);
   const { data: entries = [], isLoading: el } = useEntries({
-    from: from.toISOString().slice(0, 10),
+    from: localISO(from),
     to: todayISO(),
   });
 
@@ -159,7 +159,7 @@ export default function Dashboard() {
     const notifOn = localStorage.getItem("bfp-notifications-enabled") === "true";
     if (!notifOn || stats.missed === 0) return;
     const lastSent = localStorage.getItem("bfp-alert-last-sent");
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayISO();
     if (lastSent === today) return;
     sendAlert()
       .then((r) => {

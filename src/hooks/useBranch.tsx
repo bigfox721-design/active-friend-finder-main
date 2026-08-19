@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "./useAuth";
 
 export type Branch = { id: string; name: string };
 
@@ -21,13 +22,24 @@ const BranchCtx = createContext<Ctx>({
 const STORAGE_KEY = "selected_branch_id";
 
 export const BranchProvider = ({ children }: { children: ReactNode }) => {
-  const [branchId, setBranchIdState] = useState<string | null>(() =>
-    typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null,
-  );
+  const { user } = useAuth();
+  // Remember the selected branch per logged-in account, so two users testing
+  // in the same browser don't share one branch selection.
+  const storageKey = user?.id ? `${STORAGE_KEY}_${user.id}` : STORAGE_KEY;
+
+  const readStored = () =>
+    typeof window !== "undefined" ? window.localStorage.getItem(storageKey) : null;
+
+  const [branchId, setBranchIdState] = useState<string | null>(() => readStored());
 
   const safeSet = (id: string) => {
-    if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, id);
+    if (typeof window !== "undefined") window.localStorage.setItem(storageKey, id);
   };
+
+  // When the logged-in user changes, load that user's branch preference.
+  useEffect(() => {
+    setBranchIdState(readStored());
+  }, [storageKey]);
 
   const { data: branches = [], isLoading } = useQuery({
     queryKey: ["branches"],

@@ -154,6 +154,14 @@
     font-feature-settings: "cv02","cv03","cv04","cv11";
     -webkit-font-smoothing: antialiased;
   }
+  /* Hide up/down scrollbars everywhere — scrolling is mouse-driven. */
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer components {

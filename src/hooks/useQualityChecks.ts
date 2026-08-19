@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBranch } from "./useBranch";
 import { useCreateActivityLog } from "./useActivityLog";
+import { todayISO } from "@/lib/format";
 
 export type QualityCheck = {
   id: string;
@@ -162,7 +163,7 @@ export const useRecordQualityCheck = () => {
           rejection_reason: input.rejection_reason ?? null,
           quality_notes: input.quality_notes ?? null,
           checked_by: user?.id ?? null,
-          checked_at: input.checked_at ?? new Date().toISOString().slice(0, 10),
+          checked_at: input.checked_at ?? todayISO(),
         })
         .select()
         .single();
