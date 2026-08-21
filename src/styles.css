@@ -154,13 +154,26 @@
     font-feature-settings: "cv02","cv03","cv04","cv11";
     -webkit-font-smoothing: antialiased;
   }
-  /* Hide up/down scrollbars everywhere — scrolling is mouse-driven. */
+  /* Remove up/down spinner buttons on number inputs — values are typed manually. */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  /* Hide scrollbars everywhere — scrolling still works via wheel/trackpad. */
   * {
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
   *::-webkit-scrollbar {
     display: none;
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
 }
 

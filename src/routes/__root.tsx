@@ -1,5 +1,4 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
 import {
   Outlet,
   Link,
@@ -95,69 +94,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Scrolls the nearest scrollable container (or the page) as the mouse moves
-// vertically. Scrollbars are hidden everywhere, so this replaces them.
-function useMouseMoveScroll() {
-  useEffect(() => {
-    let lastX: number | null = null;
-    let lastY: number | null = null;
-    let accX = 0;
-    let accY = 0;
-    const THRESHOLD = 2;
-    const isEditable = (el: Element | null) => {
-      const tag = el?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
-      return !!(el as HTMLElement | null)?.isContentEditable;
-    };
-    const getScrollable = (el: Element | null): Element | null => {
-      let node: Element | null = el;
-      while (node) {
-        const style = getComputedStyle(node);
-        if (
-          /(auto|scroll|overlay)/.test(style.overflowY) &&
-          node.scrollHeight > node.clientHeight
-        ) {
-          return node;
-        }
-        node = node.parentElement;
-      }
-      return document.scrollingElement;
-    };
-    const onMove = (e: MouseEvent) => {
-      if (lastY == null || lastX == null) {
-        lastX = e.clientX;
-        lastY = e.clientY;
-        return;
-      }
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      accX += dx;
-      accY += dy;
-      // Left/right (or diagonal) movement must not scroll — if the horizontal
-      // component ever matches or exceeds vertical, discard everything.
-      if (Math.abs(accX) >= Math.abs(accY)) {
-        accX = 0;
-        accY = 0;
-        return;
-      }
-      // Once enough vertical movement accumulates, scroll by exactly that.
-      if (Math.abs(accY) < THRESHOLD) return;
-      const delta = accY;
-      accX = 0;
-      accY = 0;
-      if (isEditable(e.target as Element)) return;
-      const el = getScrollable(e.target as Element);
-      if (el) el.scrollTop += delta;
-    };
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
-}
-
 function RootComponent() {
-  useMouseMoveScroll();
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>

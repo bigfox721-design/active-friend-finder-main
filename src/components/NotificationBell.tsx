@@ -110,7 +110,7 @@ export const NotificationBell = () => {
               )}
             </div>
           </div>
-          <div className="max-h-[70vh] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="max-h-[70vh] overflow-y-auto">
             {visible.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-6">No notifications</p>
             ) : (

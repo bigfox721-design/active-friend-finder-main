@@ -4,7 +4,7 @@ import { gsap } from "gsap";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Activity, Loader2 } from "lucide-react";
+import { Activity, Eye, EyeOff, Loader2 } from "lucide-react";
 import character from "@/assets/login-character.png";
 
 const schema = z.object({
@@ -27,6 +27,7 @@ export default function Login() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -211,17 +212,27 @@ export default function Login() {
                     </Link>
                   )}
                 </div>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  minLength={6}
-                  maxLength={72}
-                  autoComplete={mode === "login" ? "current-password" : "new-password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 w-full rounded-md bg-secondary/40 border border-border px-3 py-2 text-sm text-foreground outline-none focus:ring-ring focus:ring-2"
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    minLength={6}
+                    maxLength={72}
+                    autoComplete={mode === "login" ? "current-password" : "new-password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="mt-1 w-full rounded-md bg-secondary/40 border border-border px-3 py-2 pr-10 text-sm text-foreground outline-none focus:ring-ring focus:ring-2"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-primary hover:bg-primary/15"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
             </div>
 

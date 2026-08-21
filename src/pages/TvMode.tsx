@@ -289,7 +289,7 @@ export default function TvMode() {
   return (
     <div
       className={cn(
-        "h-screen grid-bg p-6 md:p-10 relative flex flex-col overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "h-screen grid-bg p-6 md:p-10 relative flex flex-col overflow-y-auto",
         anyMissed && "bg-destructive/20",
       )}
     >

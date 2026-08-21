@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { User, Bell, Palette, Mail, Save, Send, Loader2, Trash2, AlertTriangle } from "lucide-react";
+import { User, Bell, Palette, Mail, Save, Send, Loader2, Trash2, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
 import { useTheme } from "@/hooks/useTheme";
 import { useClearAllData } from "@/hooks/useClearAllData";
@@ -38,6 +38,7 @@ export default function Settings() {
   const [notifications, setNotifications] = useState(true);
 
   const [smtp, setSmtp] = useState<SmtpForm>(DEFAULT_SMTP);
+  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
   const [testTo, setTestTo] = useState("");
@@ -262,15 +263,25 @@ export default function Settings() {
                 <Label className="font-medium" htmlFor="smtp_password">
                   SMTP Password (App Password)
                 </Label>
-                <Input
-                  id="smtp_password"
-                  type="password"
-                  value={smtp.smtp_password}
-                  onChange={(e) => setSmtp({ ...smtp, smtp_password: e.target.value })}
-                  placeholder="••••••••••••"
-                  className="mt-2"
-                  autoComplete="new-password"
-                />
+                <div className="relative">
+                  <Input
+                    id="smtp_password"
+                    type={showSmtpPassword ? "text" : "password"}
+                    value={smtp.smtp_password}
+                    onChange={(e) => setSmtp({ ...smtp, smtp_password: e.target.value })}
+                    placeholder="••••••••••••"
+                    className="mt-2 pr-10"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSmtpPassword((s) => !s)}
+                    aria-label={showSmtpPassword ? "Hide SMTP password" : "Show SMTP password"}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-primary hover:bg-primary/15"
+                  >
+                    {showSmtpPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
               <div>
                 <Label className="font-medium" htmlFor="smtp_host">
