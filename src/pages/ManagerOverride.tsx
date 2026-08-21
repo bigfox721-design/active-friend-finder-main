@@ -67,6 +67,7 @@ export default function ManagerOverridePage() {
   const [selectedUser, setSelectedUser] = useState("");
   const [selectedProduct, setSelectedProduct] = useState("");
   const [selectedSubProduct, setSelectedSubProduct] = useState("");
+  const [targetDate, setTargetDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [expiresInHours, setExpiresInHours] = useState("24");
   const [reason, setReason] = useState("");
 
@@ -103,22 +104,24 @@ export default function ManagerOverridePage() {
     await grantOverride.mutateAsync({
       user_id: selectedUser,
       product_id: grantProductId,
-      reason: reason || `Override granted for ${productName}`,
+      reason: reason || `Override granted for ${productName} on ${targetDate}`,
       expires_at: expiresAt,
+      target_date: targetDate,
     });
 
     await createLog.mutateAsync({
       branch_id: branchId ?? undefined,
       product_id: grantProductId,
       action: "override_granted",
-      description: `Edit override granted to ${userName} for ${productName} (${hours}h)`,
+      description: `Edit override granted to ${userName} for ${productName} on ${targetDate} (${hours}h)`,
     });
 
-    toast.success(`Override granted to ${userName}`);
+    toast.success(`Override granted to ${userName} for ${targetDate}`);
     setSelectedUser("");
     setSelectedProduct("");
     setSelectedSubProduct("");
     setReason("");
+    setTargetDate(new Date().toISOString().split("T")[0]);
   };
 
   const handleRevoke = async (id: string) => {
@@ -159,7 +162,7 @@ export default function ManagerOverridePage() {
             e.preventDefault();
             handleGrant();
           }}
-          className="grid grid-cols-1 md:grid-cols-6 gap-4"
+          className="grid grid-cols-1 md:grid-cols-7 gap-4"
         >
           <div>
             <Label>User</Label>
@@ -227,6 +230,14 @@ export default function ManagerOverridePage() {
             </Select>
           </div>
           <div>
+            <Label>Target Date</Label>
+            <Input
+              type="date"
+              value={targetDate}
+              onChange={(e) => setTargetDate(e.target.value)}
+            />
+          </div>
+          <div>
             <Label>Expires in (hours)</Label>
             <Input
               type="number"
@@ -267,6 +278,7 @@ export default function ManagerOverridePage() {
                 <TableRow>
                   <TableHead>User</TableHead>
                   <TableHead>Product</TableHead>
+                  <TableHead>Target Date</TableHead>
                   <TableHead>Reason</TableHead>
                   <TableHead>Expires</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -284,6 +296,11 @@ export default function ManagerOverridePage() {
                   <TableRow key={o.id}>
                     <TableCell>{o.user?.name ?? "Unknown"}</TableCell>
                     <TableCell>{getProductName(o.product_id)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">
+                        {o.target_date ?? "Any date"}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {o.reason ?? "—"}
                     </TableCell>

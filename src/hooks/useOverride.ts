@@ -9,6 +9,7 @@ export type EditOverride = {
   product_id: string;
   reason: string | null;
   expires_at: string;
+  target_date: string | null;
   created_at: string;
 };
 
@@ -52,6 +53,7 @@ export const useGrantOverride = () => {
       product_id: string;
       reason?: string;
       expires_at: string;
+      target_date?: string | null;
     }) => {
       const user = (await supabase.auth.getUser()).data.user;
       const { error } = await (supabase as any).from("edit_overrides").insert({
@@ -60,6 +62,7 @@ export const useGrantOverride = () => {
         product_id: input.product_id,
         reason: input.reason ?? null,
         expires_at: input.expires_at,
+        target_date: input.target_date ?? null,
       } as any);
       if (error) throw error;
     },

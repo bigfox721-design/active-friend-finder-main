@@ -85,9 +85,15 @@ export default function DailyOverview() {
   // A grant on a parent product covers the product and ALL of its
   // sub-products. A grant on a specific sub-product covers ONLY that
   // sub-product — its sibling sub-products stay locked.
+  // An override is valid for the selected date if target_date is null (any date)
+  // or matches the selected date.
   const overrideProductIds = useMemo(() => {
     const ids = new Set<string>();
     for (const o of activeOverrides) {
+      // Check if override is valid for the selected date
+      if (o.target_date && o.target_date !== selectedDate) {
+        continue;
+      }
       const sub = subProducts.find((s) => s.id === o.product_id);
       if (sub) {
         ids.add(sub.id);
@@ -99,7 +105,7 @@ export default function DailyOverview() {
       }
     }
     return ids;
-  }, [activeOverrides, subProducts]);
+  }, [activeOverrides, subProducts, selectedDate]);
 
   // Sum metrics for the current selection (covers "All" + grouped views).
   const metrics = useMemo(() => {
@@ -306,7 +312,7 @@ export default function DailyOverview() {
       ? "Select a product to edit this date's values."
       : "Select a sub-product to edit this date's values."
     : isPastDate && !isManager && !hasOverride
-      ? "Past dates can only be edited when the manager has granted you override access for this product."
+      ? "Past dates can only be edited when the manager has granted you override access for this product on this specific date."
       : !isManager
         ? "As a user you can only update the Evening Completed. Morning Target and Manpower are set by the manager."
         : null;
@@ -352,7 +358,10 @@ export default function DailyOverview() {
                   Active overrides:{" "}
                   <span className="font-medium text-foreground">
                     {activeOverrides
-                      .map((o: any) => o.product?.name ?? o.product_id?.slice(0, 8))
+                      .map((o: any) => {
+                        const productName = o.product?.name ?? o.product_id?.slice(0, 8);
+                        return o.target_date ? `${productName} (${o.target_date})` : productName;
+                      })
                       .join(", ")}
                   </span>
                 </>
